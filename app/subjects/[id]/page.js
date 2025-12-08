@@ -11,9 +11,10 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Plus, ArrowLeft, Network, BookOpen, Settings, Trash2 } from 'lucide-react'
+import { Plus, ArrowLeft, Network, BookOpen, Settings, Trash2, Sparkles, Play, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
 import GraphVisualizer from '@/components/GraphVisualizer'
+import { isDueForReview } from '@/lib/sm2'
 
 export default function SubjectPage() {
   const router = useRouter()
@@ -25,6 +26,13 @@ export default function SubjectPage() {
   const [topics, setTopics] = useState([])
   const [dependencies, setDependencies] = useState([])
   const [isCreateTopicOpen, setIsCreateTopicOpen] = useState(false)
+  const [isAIGenerateOpen, setIsAIGenerateOpen] = useState(false)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiConfig, setAiConfig] = useState({
+    seedText: '',
+    difficulty: 3,
+    totalMinutes: 300
+  })
   const [newTopic, setNewTopic] = useState({
     title: '',
     description: '',
