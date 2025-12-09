@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,8 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { GoogleIcon } from '@/components/ui/icons'
 import { ThemeToggle } from '@/components/sub-components/theme-toggle'
+import { App } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,6 +21,29 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const supabase = createClient()
+
+  useEffect(() => {
+    // Listen for the app being opened by a deep link (Custom Scheme)
+    App.addListener('appUrlOpen', async (data) => {
+      // data.url will contain "com.learnify.app://auth-callback?code=..."
+      if (data.url.includes('auth-callback')) {
+        const url = new URL(data.url)
+        const code = url.searchParams.get('code')
+        
+        if (code) {
+           toast.info('Authenticating...')
+           const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code)
+           
+           if (!error) {
+             toast.success('Successfully logged in!')
+             router.push('/dashboard')
+           } else {
+             toast.error('Failed to exchange code: ' + error.message)
+           }
+        }
+      }
+    })
+  }, [])
 
   const handleEmailLogin = async (e) => {
     e.preventDefault()
@@ -44,10 +69,17 @@ export default function LoginPage() {
   }
 
   const handleOAuthLogin = async (provider) => {
+    // Determine Redirect URL based on Platform
+    let redirectUrl = `${window.location.origin}/auth/callback`
+    
+    if (Capacitor.isNativePlatform()) {
+      redirectUrl = 'com.learnify.app://auth-callback'
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: redirectUrl,
       },
     })
     if (error) {
