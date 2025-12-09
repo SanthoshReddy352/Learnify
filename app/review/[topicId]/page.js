@@ -217,7 +217,7 @@ export default function ReviewPage() {
             <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
 
-        <div className="max-w-2xl w-full relative z-10">
+        <div className="max-w-2xl w-full relative z-10 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           <div className="mb-8 flex justify-between items-end">
              <div>
                 <Button variant="ghost" onClick={() => setShowFlashcards(false)} className="hover:bg-white/5 -ml-4 mb-2 md:mb-0">

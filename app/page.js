@@ -309,7 +309,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-12 px-6 bg-background relative z-10">
+      <footer className="border-t border-white/5 py-12 px-6 bg-background relative z-10 pb-[calc(3rem+env(safe-area-inset-bottom))]">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
            <div className="flex items-center gap-2">
             <Image src="/icons/icon-192x192.png" alt="Learnify Logo" width={24} height={24} className="h-6 w-6 rounded-full grayscale opacity-80" />

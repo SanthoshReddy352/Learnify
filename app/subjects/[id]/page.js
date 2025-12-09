@@ -666,7 +666,7 @@ export default function SubjectPage() {
                           </Button>
                       </SheetTrigger>
 
-                      <SheetContent className="flex flex-col gap-6 w-[85vw] sm:w-[350px] bg-background text-foreground border-l border-border/50">
+                      <SheetContent className="flex flex-col gap-6 w-[85vw] sm:w-[350px] bg-background text-foreground border-l border-border/50 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                     <SheetHeader>
                       <SheetTitle className="text-left text-xl font-bold flex items-center gap-2">
                         <BookOpen className="h-5 w-5 text-primary" />
