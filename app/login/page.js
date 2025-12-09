@@ -24,8 +24,24 @@ export default function LoginPage() {
   const supabase = createClient()
 
   useEffect(() => {
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push('/dashboard')
+      }
+    }
+    checkUser()
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || session) {
+        router.push('/dashboard')
+      }
+    })
+
     // Listen for the app being opened by a deep link (Custom Scheme)
-    App.addListener('appUrlOpen', async (data) => {
+    const appListener = App.addListener('appUrlOpen', async (data) => {
       // data.url will contain "com.learnify.app://auth-callback?code=..."
       if (data.url.includes('auth-callback')) {
         // Close the browser if open
@@ -36,17 +52,22 @@ export default function LoginPage() {
         
         if (code) {
            toast.info('Authenticating...')
-           const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code)
+           const { error } = await supabase.auth.exchangeCodeForSession(code)
            
            if (!error) {
              toast.success('Successfully logged in!')
-             router.push('/dashboard')
+             // The onAuthStateChange listener will handle the redirect
            } else {
              toast.error('Failed to exchange code: ' + error.message)
            }
         }
       }
     })
+
+    return () => {
+      subscription.unsubscribe()
+      appListener.then(handle => handle.remove())
+    }
   }, [])
 
   const handleEmailLogin = async (e) => {
@@ -64,7 +85,7 @@ export default function LoginPage() {
       }
 
       toast.success('Welcome back!')
-      router.push('/dashboard')
+      // Redirect handled by onAuthStateChange
     } catch (error) {
       toast.error(error.message || 'Failed to sign in')
     } finally {
