@@ -14,6 +14,7 @@ import { GoogleIcon } from '@/components/ui/icons'
 import { ThemeToggle } from '@/components/sub-components/theme-toggle'
 import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
+import { Browser } from '@capacitor/browser'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -27,6 +28,9 @@ export default function LoginPage() {
     App.addListener('appUrlOpen', async (data) => {
       // data.url will contain "com.learnify.app://auth-callback?code=..."
       if (data.url.includes('auth-callback')) {
+        // Close the browser if open
+        await Browser.close()
+
         const url = new URL(data.url)
         const code = url.searchParams.get('code')
         
@@ -76,14 +80,31 @@ export default function LoginPage() {
       redirectUrl = 'com.learnify.app://auth-callback'
     }
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: redirectUrl,
+        skipBrowserRedirect: true,
       },
     })
+
     if (error) {
       toast.error(error.message)
+      return
+    }
+
+    if (data?.url) {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await Browser.open({ url: data.url })
+        } catch (e) {
+          console.error("Browser open failed", e)
+          // Fallback if browser plugin fails for some reason (though it shouldn't if installed)
+           window.location.href = data.url
+        }
+      } else {
+        window.location.href = data.url
+      }
     }
   }
 
