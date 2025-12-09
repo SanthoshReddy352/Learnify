@@ -3,7 +3,7 @@
   "appName": "Learnify",
   "webDir": "out",
   "server": {
-    "url": "http://192.168.29.232:3000/",
+    "url": "https://learnify-x.vercel.app/",
     "cleartext": true
   }
 }
