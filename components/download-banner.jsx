@@ -12,14 +12,22 @@ export function DownloadBanner() {
 
   useEffect(() => {
     setIsMounted(true);
-    // Check if running on native platform (Android/iOS)
+    // CRITICAL: This banner MUST NOT appear in the Android application.
+    // The user has strictly requested that this never shows up in the native app.
+    // We use multiple checks to ensure safety.
+    const platform = Capacitor.getPlatform();
     const isNative = Capacitor.isNativePlatform();
+    
+    if (platform === 'android' || platform === 'ios' || isNative) {
+      console.log('DownloadBanner: Native platform detected, suppressing banner.');
+      return;
+    }
     
     // Only show if NOT native and we haven't dismissed it this session
     // You could also use localStorage to persist dismissal across sessions if desired
     const isDismissed = sessionStorage.getItem('download-banner-dismissed');
     
-    if (!isNative && !isDismissed) {
+    if (!isDismissed) {
       // Small delay for entrance animation
       const timer = setTimeout(() => setIsVisible(true), 1000);
       return () => clearTimeout(timer);
