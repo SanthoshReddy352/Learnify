@@ -18,6 +18,7 @@ import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import CodeBlock, { cleanCodeContent } from '@/components/sub-components/CodeBlock'
 import Flashcard from '@/components/sub-components/Flashcard'
+import MarkdownComponents from '@/components/sub-components/MarkdownComponents'
 
 
 
