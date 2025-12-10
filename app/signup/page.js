@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,9 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { GoogleIcon } from '@/components/ui/icons'
 import { ThemeToggle } from '@/components/sub-components/theme-toggle'
+import { App } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
+import { Browser } from '@capacitor/browser'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -20,16 +23,68 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const supabase = createClient()
 
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push('/dashboard')
+      }
+    }
+    checkUser()
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || session) {
+        router.push('/dashboard')
+      }
+    })
+
+    // Listen for the app being opened by a deep link (Custom Scheme)
+    const appListener = App.addListener('appUrlOpen', async (data) => {
+      // data.url will contain "com.learnify.app://auth-callback?code=..."
+      if (data.url.includes('auth-callback')) {
+        // Close the browser if open
+        await Browser.close()
+
+        const url = new URL(data.url)
+        const code = url.searchParams.get('code')
+        
+        if (code) {
+           toast.info('Authenticating...')
+           const { error } = await supabase.auth.exchangeCodeForSession(code)
+           
+           if (!error) {
+             toast.success('Successfully logged in!')
+             // The onAuthStateChange listener will handle the redirect
+           } else {
+             toast.error('Failed to exchange code: ' + error.message)
+           }
+        }
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+      appListener.then(handle => handle.remove())
+    }
+  }, [])
+
   const handleEmailSignup = async (e) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      let emailRedirectTo = `${window.location.origin}/auth/callback`
+      if (Capacitor.isNativePlatform()) {
+         emailRedirectTo = 'com.learnify.app://auth-callback'
+      }
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo,
         },
       })
 
@@ -48,14 +103,38 @@ export default function SignupPage() {
   }
 
   const handleOAuthLogin = async (provider) => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    // Determine Redirect URL based on Platform
+    let redirectUrl = `${window.location.origin}/auth/callback`
+    
+    if (Capacitor.isNativePlatform()) {
+      redirectUrl = 'com.learnify.app://auth-callback'
+    }
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: redirectUrl,
+        skipBrowserRedirect: true,
       },
     })
+
     if (error) {
       toast.error(error.message)
+      return
+    }
+
+    if (data?.url) {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await Browser.open({ url: data.url })
+        } catch (e) {
+          console.error("Browser open failed", e)
+          // Fallback if browser plugin fails for some reason (though it shouldn't if installed)
+           window.location.href = data.url
+        }
+      } else {
+        window.location.href = data.url
+      }
     }
   }
 

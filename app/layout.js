@@ -3,6 +3,7 @@ import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { DownloadBanner } from '@/components/download-banner'
+import { AppInitializer } from '@/components/AppInitializer'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -46,6 +47,7 @@ export default function RootLayout({ children }) {
             enableSystem
             disableTransitionOnChange
           >
+            <AppInitializer />
             {children}
             <DownloadBanner />
 
