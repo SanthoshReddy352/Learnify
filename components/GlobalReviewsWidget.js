@@ -27,7 +27,7 @@ export default function GlobalReviewsWidget({ reviews }) {
           <div 
             key={topic.id} 
             className="flex flex-col justify-between p-3 rounded-lg bg-background/50 border border-white/5 hover:border-orange-500/30 transition-all cursor-pointer group"
-            onClick={() => router.push(`/review/${topic.id}`)}
+            onClick={() => router.push(`/review/${topic.id}?from=dashboard`)}
           >
             <div>
                 <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">

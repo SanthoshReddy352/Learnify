@@ -56,10 +56,15 @@ export default function Dashboard() {
         return
       }
       setUser(user)
-      loadSubjects(user.id)
-      loadAnalytics(user.id)
-      checkKeys()
-      checkProfile(user.id)
+      
+      // Load all data in parallel to prevent layout shifts
+      await Promise.all([
+        loadSubjects(user.id),
+        loadAnalytics(user.id),
+        checkKeys(),
+        checkProfile(user.id)
+      ])
+      
       setLoading(false)
     }
     checkUser()

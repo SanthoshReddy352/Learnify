@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,6 +34,8 @@ const qualityLabels = [
 export default function ReviewPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
+  const fromSource = searchParams.get('from')
   const topicId = params.topicId
   const [topic, setTopic] = useState(null)
   const [subject, setSubject] = useState(null)
@@ -85,7 +87,12 @@ export default function ReviewPage() {
     if (result.success) {
       const nextReview = format(new Date(result.nextReviewDate), 'MMM d, yyyy')
       toast.success(`Review complete! Next review: ${nextReview}`, { duration: 5000 })
-      router.push(`/subjects/${subject.id}`)
+      
+      if (fromSource === 'dashboard') {
+        router.push('/dashboard')
+      } else {
+        router.push(`/subjects/${subject.id}`)
+      }
     } else {
       toast.error('Failed to submit review')
       setSubmitting(false)
