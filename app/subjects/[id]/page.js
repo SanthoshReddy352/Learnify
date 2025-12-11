@@ -921,16 +921,16 @@ export default function SubjectPage() {
                         <div onClick={(e) => e.stopPropagation()} className="relative z-10">
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                                       <MoreVertical className="h-4 w-4" />
                                   </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-black/90 border-white/10 backdrop-blur-md">
-                                  <DropdownMenuItem onClick={() => openTopicDetails(topic)} className="cursor-pointer focus:bg-white/10 focus:text-white">
+                              <DropdownMenuContent align="end" className="bg-popover/95 backdrop-blur-md border-border">
+                                  <DropdownMenuItem onClick={() => openTopicDetails(topic)} className="cursor-pointer focus:bg-accent focus:text-accent-foreground">
                                       <Pencil className="mr-2 h-4 w-4" />
                                       Edit Details
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDeleteTopic(topic)} className="cursor-pointer text-red-400 focus:text-red-400 focus:bg-red-500/10">
+                                  <DropdownMenuItem onClick={() => handleDeleteTopic(topic)} className="cursor-pointer text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-900/10 focus:text-red-600 dark:focus:text-red-400">
                                       <Trash2 className="mr-2 h-4 w-4" />
                                       Delete Topic
                                   </DropdownMenuItem>
