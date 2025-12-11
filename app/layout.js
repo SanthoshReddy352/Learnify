@@ -1,6 +1,7 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { DownloadBanner } from '@/components/download-banner'
@@ -54,6 +55,7 @@ export default function RootLayout({ children }) {
 
             <Toaster />
             <Analytics />
+            <SpeedInsights />
         </ThemeProvider>
       </body>
     </html>
