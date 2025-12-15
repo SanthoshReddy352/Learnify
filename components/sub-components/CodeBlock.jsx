@@ -126,6 +126,16 @@ const sanitizeMermaidCode = (code) => {
   
   // === REMOVE UNSUPPORTED SYNTAX ===
   result = result.replace(/^\s*enum\s+\w+\s*\{[^}]*\}/gm, '')
+
+  // === STRIP INLINE STYLES & CLASSES (Force Theme Colors) ===
+  // Remove style lines (e.g., style A fill:#f9f,stroke:#333)
+  result = result.replace(/^\s*style\s+.*$/gm, '')
+  // Remove classDef lines (e.g., classDef className fill:#f9f)
+  result = result.replace(/^\s*classDef\s+.*$/gm, '')
+  // Remove class attachments (e.g., A:::className or A:::someClass)
+  result = result.replace(/:::\s*[a-zA-Z0-9_-]+/g, '')
+  // Remove link styles (e.g., linkStyle 0 stroke-width:2px)
+  result = result.replace(/^\s*linkStyle\s+.*$/gm, '')
   
   // === CLEAN UP ===
   result = result.replace(/\n\s*\n\s*\n/g, '\n\n')
@@ -315,13 +325,13 @@ const MermaidDiagram = ({ code }) => {
           themeVariables: {
             // Core colors - all purple
             primaryColor: '#1e1b4b',
-            primaryTextColor: '#c4b5fd',
+            primaryTextColor: '#ffffff',
             primaryBorderColor: '#7c3aed',
             secondaryColor: '#1e1b4b',
-            secondaryTextColor: '#c4b5fd',
+            secondaryTextColor: '#ffffff',
             secondaryBorderColor: '#7c3aed',
             tertiaryColor: '#1e1b4b',
-            tertiaryTextColor: '#c4b5fd',
+            tertiaryTextColor: '#ffffff',
             tertiaryBorderColor: '#7c3aed',
             
             // Backgrounds
@@ -329,7 +339,7 @@ const MermaidDiagram = ({ code }) => {
             mainBkg: '#1e1b4b',
             nodeBkg: '#1e1b4b',
             nodeBorder: '#7c3aed',
-            nodeTextColor: '#c4b5fd',
+            nodeTextColor: '#ffffff',
             lineColor: '#7c3aed',
             
             // Clusters
@@ -337,8 +347,8 @@ const MermaidDiagram = ({ code }) => {
             clusterBorder: '#7c3aed',
             
             // Text
-            titleColor: '#e0e7ff',
-            textColor: '#c4b5fd',
+            titleColor: '#ffffff',
+            textColor: '#ffffff',
             edgeLabelBackground: '#1e1b4b',
             
             // Mindmap fills (0-9) - all same color
@@ -347,34 +357,34 @@ const MermaidDiagram = ({ code }) => {
             'fill6': '#1e1b4b', 'fill7': '#1e1b4b', 'fill8': '#1e1b4b', 'fill9': '#1e1b4b',
             
             // Sequence diagram
-            actorBkg: '#1e1b4b', actorBorder: '#7c3aed', actorTextColor: '#c4b5fd',
-            actorLineColor: '#7c3aed', signalColor: '#7c3aed', signalTextColor: '#c4b5fd',
+            actorBkg: '#1e1b4b', actorBorder: '#7c3aed', actorTextColor: '#ffffff',
+            actorLineColor: '#7c3aed', signalColor: '#7c3aed', signalTextColor: '#ffffff',
             labelBoxBkgColor: '#1e1b4b', labelBoxBorderColor: '#7c3aed',
-            labelTextColor: '#c4b5fd', loopTextColor: '#c4b5fd',
+            labelTextColor: '#ffffff', loopTextColor: '#ffffff',
             activationBorderColor: '#7c3aed', activationBkgColor: '#312e81',
             
             // Notes
-            noteBkgColor: '#312e81', noteTextColor: '#c4b5fd', noteBorderColor: '#7c3aed',
+            noteBkgColor: '#312e81', noteTextColor: '#ffffff', noteBorderColor: '#7c3aed',
             
             // Class diagram - override defaults
-            classText: '#c4b5fd',
+            classText: '#ffffff',
             
             // State diagram
-            labelColor: '#c4b5fd',
+            labelColor: '#ffffff',
             altBackground: '#1e1b4b',
             
             // Gantt - override crit/done colors
             critBkgColor: '#312e81', critBorderColor: '#7c3aed',
             doneTaskBkgColor: '#1e1b4b', doneTaskBorderColor: '#7c3aed',
             activeTaskBkgColor: '#312e81', activeTaskBorderColor: '#7c3aed',
-            taskBkgColor: '#1e1b4b', taskBorderColor: '#7c3aed', taskTextColor: '#c4b5fd',
+            taskBkgColor: '#1e1b4b', taskBorderColor: '#7c3aed', taskTextColor: '#ffffff',
             sectionBkgColor: '#0f172a', sectionBkgColor2: '#1e1b4b',
             gridColor: '#7c3aed', todayLineColor: '#a78bfa',
             
             // Pie chart
             pie1: '#7c3aed', pie2: '#8b5cf6', pie3: '#a78bfa', pie4: '#c4b5fd',
             pie5: '#6d28d9', pie6: '#5b21b6', pie7: '#4c1d95', pie8: '#312e81',
-            pieStrokeColor: '#1e1b4b', pieLegendTextColor: '#c4b5fd',
+            pieStrokeColor: '#1e1b4b', pieLegendTextColor: '#ffffff',
             
             // Journey
             fillType0: '#1e1b4b', fillType1: '#1e1b4b', fillType2: '#1e1b4b',

@@ -144,6 +144,8 @@ export async function POST(request) {
        - ALWAYS put ONE blank line after EVERY heading
        - NEVER place a heading immediately after other text on the same line
        - NEVER place a heading at the end of a paragraph
+       - DO NOT use HTML tags like <br>, <p>, <div>. Use Markdown for ALL formatting.
+       - Use STANDARD NEWLINES (\n) for line breaks. Do NOT use <br>.
        
        WRONG EXAMPLES:
        - "Some text ## Heading" (heading on same line as text)
@@ -282,6 +284,10 @@ export async function POST(request) {
 
     // Cleanup: Remove ```markdown wrapping if present
     rawContent = rawContent.replace(/^```markdown\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '')
+    
+    // Cleanup: Replace <br> tags with newlines
+    rawContent = rawContent.replace(/<br\s*\/?>/gi, '\n')
+
     let finalContent = rawContent.trim()
 
     if (!finalContent) {
