@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Plus, Book, MoreVertical, Pencil, Trash2, Key, User, Activity, Clock, Trophy, Sparkles } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Plus, Book, MoreVertical, Pencil, Trash2, Key, User, Activity, Clock, Trophy, Sparkles, PenTool } from 'lucide-react'
 import { toast } from 'sonner'
 import WeeklyStats from '@/components/WeeklyStats'
 import GlobalReviewsWidget from '@/components/GlobalReviewsWidget'
@@ -33,7 +34,8 @@ export default function Dashboard() {
 
   const [hasGeminiKey, setHasGeminiKey] = useState(true)
   const [hasHfKey, setHasHfKey] = useState(true)
-  const [generating, setGenerating] = useState(false) // For loading state during generation
+  const [generating, setGenerating] = useState(false) 
+  const [creationMode, setCreationMode] = useState('ai') // 'ai' | 'manual'
   const supabase = createClient()
 
   // Pre-fill edit form when a subject is selected for editing
@@ -157,6 +159,18 @@ export default function Dashboard() {
       toast.error('Failed to add subject')
       setGenerating(false)
     } else {
+      // If valid manual mode, we are done
+      if (creationMode === 'manual') {
+        toast.success('Subject created successfully!')
+        setNewSubject({ title: '', description: '' })
+        setIsCreateOpen(false)
+        setGenerating(false)
+        loadSubjects(user.id)
+        // Optional: Redirect immediately to the new subject
+        router.push(`/subjects/${subjectData.id}`)
+        return
+      }
+
       // Trigger API Generation
       toast.message('Generating Personalized Curriculum...', {
         description: 'Using your profile to tailor topics. This may take a moment.',
@@ -286,31 +300,62 @@ export default function Dashboard() {
                 <DialogTitle>Create New Subject</DialogTitle>
                 <DialogDescription>Start a new learning journey by creating a subject.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Subject Title</Label>
-                  <Input
-                    id="title"
-                    placeholder="e.g., JavaScript Fundamentals"
-                    value={newSubject.title}
-                    onChange={(e) => setNewSubject({ ...newSubject, title: e.target.value })}
-                    className="bg-background/50 border-white/10 focus:border-primary/50"
-                  />
+              
+              <Tabs defaultValue="ai" value={creationMode} onValueChange={setCreationMode} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="ai" className="gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    AI Curriculum
+                  </TabsTrigger>
+                  <TabsTrigger value="manual" className="gap-2">
+                    <PenTool className="h-4 w-4" />
+                    Manual Study
+                  </TabsTrigger>
+                </TabsList>
+
+                <div className="space-y-4 py-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Subject Title</Label>
+                    <Input
+                      id="title"
+                      placeholder={creationMode === 'ai' ? "e.g., JavaScript Fundamentals" : "e.g., My Personal Notes"}
+                      value={newSubject.title}
+                      onChange={(e) => setNewSubject({ ...newSubject, title: e.target.value })}
+                      className="bg-background/50 border-white/10 focus:border-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description (Optional)</Label>
+                    <Textarea
+                      id="description"
+                      placeholder={creationMode === 'ai' ? "What will you learn? AI will use this to generate topics." : "Brief description of this subject."}
+                      value={newSubject.description}
+                      onChange={(e) => setNewSubject({ ...newSubject, description: e.target.value })}
+                      className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[100px]"
+                    />
+                  </div>
+
+                  {creationMode === 'ai' && (
+                     <div className="rounded-md bg-primary/10 p-3 text-sm text-primary flex gap-2">
+                        <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
+                        <p>We'll generate a personalized curriculum graph for you based on your profile and this description.</p>
+                     </div>
+                  )}
+
+                  {creationMode === 'manual' && (
+                     <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground flex gap-2">
+                        <PenTool className="h-4 w-4 shrink-0 mt-0.5" />
+                        <p>You'll start with an empty subject. You can add topics manually or use AI to generate specific ones later.</p>
+                     </div>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description (Optional)</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="What will you learn in this subject?"
-                    value={newSubject.description}
-                    onChange={(e) => setNewSubject({ ...newSubject, description: e.target.value })}
-                    className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[100px]"
-                  />
-                </div>
-              </div>
+              </Tabs>
+
               <DialogFooter>
                 <Button variant="ghost" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreateSubject}>Add Subject</Button>
+                <Button onClick={handleCreateSubject}>
+                  {creationMode === 'ai' ? 'Generate Subject' : 'Create Subject'}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
