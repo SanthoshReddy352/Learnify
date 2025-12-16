@@ -9,6 +9,10 @@ export default function ImageLightbox({ src, alt, onClose }) {
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  
+  // Pinch-to-zoom state
+  const [initialDistance, setInitialDistance] = useState(null)
+  const [initialScale, setInitialScale] = useState(1)
 
   const minScale = 0.5
   const maxScale = 4
@@ -54,12 +58,20 @@ export default function ImageLightbox({ src, alt, onClose }) {
   const resetZoom = useCallback(() => {
     setScale(1)
     setPosition({ x: 0, y: 0 })
+    setInitialDistance(null)
   }, [])
 
   // Handle wheel zoom (event already prevented by document listener)
   const handleWheel = useCallback((e) => {
-    const delta = e.deltaY > 0 ? -0.2 : 0.2
-    setScale(prev => Math.min(Math.max(prev + delta, minScale), maxScale))
+    // Check if it's a pinch gesture on trackpad (ctrlKey is often true for trackpad pinch)
+    if (e.ctrlKey) {
+        e.preventDefault();
+        const delta = -e.deltaY * 0.01;
+        setScale(prev => Math.min(Math.max(prev + delta, minScale), maxScale));
+    } else {
+        const delta = e.deltaY > 0 ? -0.2 : 0.2
+        setScale(prev => Math.min(Math.max(prev + delta, minScale), maxScale))
+    }
   }, [])
 
   // Handle drag to pan
@@ -83,9 +95,24 @@ export default function ImageLightbox({ src, alt, onClose }) {
     setIsDragging(false)
   }
 
-  // Handle touch events for mobile
+  // Calculate distance between two touch points
+  const getDistance = (touches) => {
+    return Math.hypot(
+      touches[0].clientX - touches[1].clientX,
+      touches[0].clientY - touches[1].clientY
+    )
+  }
+
+  // Handle touch events for mobile (Pan & Pinch-to-Zoom)
   const handleTouchStart = (e) => {
-    if (scale > 1 && e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      // Pinch started
+      const distance = getDistance(e.touches)
+      setInitialDistance(distance)
+      setInitialScale(scale)
+      setIsDragging(false) // Disable dragging during pinch
+    } else if (e.touches.length === 1 && scale > 1) {
+      // Pan started
       setIsDragging(true)
       setDragStart({ 
         x: e.touches[0].clientX - position.x, 
@@ -95,7 +122,14 @@ export default function ImageLightbox({ src, alt, onClose }) {
   }
 
   const handleTouchMove = (e) => {
-    if (isDragging && scale > 1 && e.touches.length === 1) {
+    if (e.touches.length === 2 && initialDistance !== null) {
+      // Pinching
+      const distance = getDistance(e.touches)
+      const ratio = distance / initialDistance
+      const newScale = Math.min(Math.max(initialScale * ratio, minScale), maxScale)
+      setScale(newScale)
+    } else if (isDragging && scale > 1 && e.touches.length === 1) {
+      // Panning
       setPosition({
         x: e.touches[0].clientX - dragStart.x,
         y: e.touches[0].clientY - dragStart.y
@@ -103,27 +137,39 @@ export default function ImageLightbox({ src, alt, onClose }) {
     }
   }
 
+  const handleTouchEnd = (e) => {
+    // If fewer than 2 touches, reset pinch state
+    if (e.touches.length < 2) {
+      setInitialDistance(null)
+    }
+    // If no touches left, stop dragging
+    if (e.touches.length === 0) {
+      setIsDragging(false)
+    }
+  }
+
   return (
     <div 
-      className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-sm flex items-center justify-center"
+      className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-sm flex items-center justify-center pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onTouchMove={handleTouchMove}
-      onTouchEnd={handleMouseUp}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     >
       {/* Close Button - Solid background for visibility */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-50 p-3 rounded-full bg-gray-900 hover:bg-gray-800 text-white transition-all hover:scale-110 border border-white/20 shadow-lg"
+        className="absolute top-4 right-4 mt-[env(safe-area-inset-top)] mr-[env(safe-area-inset-right)] z-50 p-3 rounded-full bg-gray-900 hover:bg-gray-800 text-white transition-all hover:scale-110 border border-white/20 shadow-lg"
         aria-label="Close"
       >
         <X className="w-6 h-6" />
       </button>
 
       {/* Zoom Controls - Solid dark background */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 border border-white/20 shadow-lg">
+      <div className="absolute bottom-6 mb-[env(safe-area-inset-bottom)] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 border border-white/20 shadow-lg">
         <button
           onClick={zoomOut}
           disabled={scale <= minScale}
@@ -155,7 +201,7 @@ export default function ImageLightbox({ src, alt, onClose }) {
 
       {/* Alt text - Solid background */}
       {alt && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 max-w-md px-4 py-2 rounded-full bg-gray-900 border border-white/20 shadow-lg">
+        <div className="absolute top-4 mt-[env(safe-area-inset-top)] left-1/2 -translate-x-1/2 z-50 max-w-md px-4 py-2 rounded-full bg-gray-900 border border-white/20 shadow-lg">
           <p className="text-white text-sm text-center truncate font-medium">{alt}</p>
         </div>
       )}
@@ -174,7 +220,7 @@ export default function ImageLightbox({ src, alt, onClose }) {
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
             cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
-            transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+            transition: isDragging || (initialDistance !== null) ? 'none' : 'transform 0.2s ease-out'
           }}
           draggable={false}
           onClick={() => scale === 1 && zoomIn()}
@@ -182,7 +228,7 @@ export default function ImageLightbox({ src, alt, onClose }) {
       </div>
 
       {/* Keyboard hints */}
-      <div className="absolute bottom-6 right-6 z-50 text-white/40 text-xs hidden md:block">
+      <div className="absolute bottom-6 mb-[env(safe-area-inset-bottom)] right-6 mr-[env(safe-area-inset-right)] z-50 text-white/40 text-xs hidden md:block">
         <span>ESC to close • Scroll to zoom • Drag to pan</span>
       </div>
     </div>

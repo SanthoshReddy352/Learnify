@@ -319,6 +319,9 @@ const MermaidDiagram = ({ code }) => {
         
         const mermaid = (await import('mermaid')).default
         
+        // Suppress default error handling which prints to DOM
+        mermaid.parseError = () => {}
+
         // Comprehensive purple-only theme - NO other colors allowed
         const themeConfig = isDarkMode ? {
           theme: 'dark',
@@ -470,12 +473,14 @@ const MermaidDiagram = ({ code }) => {
 
         mermaid.initialize({
           startOnLoad: false,
+          suppressErrorRendering: true,
           ...themeConfig,
           flowchart: { 
             curve: 'basis', 
             padding: 20,
             htmlLabels: true,
             useMaxWidth: true,
+            
           },
           sequence: {
             useMaxWidth: true,

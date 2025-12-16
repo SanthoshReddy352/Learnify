@@ -13,7 +13,7 @@ export async function GET(request) {
     // Fetch user's API keys
     const { data: userData, error: fetchError } = await supabase
       .from('profiles')
-      .select('gemini_api_key, huggingface_api_key')
+      .select('gemini_api_key')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -26,14 +26,9 @@ export async function GET(request) {
     const geminiKey = userData?.gemini_api_key
     const maskedGeminiKey = geminiKey ? `${geminiKey.slice(0, 8)}...${geminiKey.slice(-4)}` : null
 
-    const hfKey = userData?.huggingface_api_key
-    const maskedHfKey = hfKey ? `${hfKey.slice(0, 4)}...${hfKey.slice(-4)}` : null
-
     return NextResponse.json({
       hasGeminiKey: !!geminiKey,
-      maskedGeminiKey,
-      hasHfKey: !!hfKey,
-      maskedHfKey
+      maskedGeminiKey
     })
 
   } catch (error) {
@@ -51,7 +46,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { geminiApiKey, huggingfaceApiKey } = await request.json()
+    const { geminiApiKey } = await request.json()
     
     const updates = {
         id: user.id,
@@ -64,15 +59,6 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Invalid Gemini API key format' }, { status: 400 })
         }
         updates.gemini_api_key = geminiApiKey ? geminiApiKey.trim() : null
-    }
-
-    // Validate and add Hugging Face Key if provided
-    if (huggingfaceApiKey !== undefined) {
-        // HF keys can be "hf_..." or just random strings, so lenient check
-         if (huggingfaceApiKey && (typeof huggingfaceApiKey !== 'string' || huggingfaceApiKey.trim().length < 4)) {
-            return NextResponse.json({ error: 'Invalid Hugging Face API key format' }, { status: 400 })
-        }
-        updates.huggingface_api_key = huggingfaceApiKey ? huggingfaceApiKey.trim() : null
     }
 
     // Save API keys to database (upsert)

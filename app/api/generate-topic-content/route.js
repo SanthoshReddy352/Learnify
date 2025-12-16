@@ -126,6 +126,37 @@ export async function POST(request) {
     `
     }
 
+    // === SUBJECT-BASED VISUAL REASONING ===
+    const standardSubjects = ['physics', 'maths', 'mathematics', 'chemistry', 'biology', 'science']
+    const lowerSubject = (subjectTitle || '').toLowerCase()
+    const isStandardSubject = standardSubjects.some(s => lowerSubject.includes(s))
+
+    const visualInstructions = isStandardSubject ? `
+       B. For REAL IMAGES (photos, scientific diagrams, anatomical structures):
+          - Use placeholder syntax: <<IMAGE: very specific search query>>
+          - Be VERY SPECIFIC with field-appropriate terms
+          
+          FIELD-SPECIFIC SEARCH EXAMPLES:
+          * Biology: "mitochondria labeled diagram", "DNA double helix structure", "cell membrane phospholipid bilayer"
+          * Chemistry: "periodic table elements", "covalent bond molecular structure", "benzene ring structure"
+          * Physics: "electromagnetic spectrum wavelength diagram", "newton laws motion illustration"
+          * Math: "unit circle trigonometry", "derivative graph slope tangent"
+          
+       C. HYBRID APPROACH FOR SCIENCE SUBJECTS (IMPORTANT):
+          - Use BOTH Mermaid diagrams AND Wikimedia images together
+          - Mermaid: For PROCESSES, FLOWS, RELATIONSHIPS (e.g., metabolic pathways, circuit diagrams, reaction sequences)
+          - Wikimedia: For STRUCTURES, ANATOMY, PHOTOGRAPHS (e.g., cell diagrams, molecular structures, equipment photos)
+          
+       D. Do NOT provide any URLs - they will be replaced automatically with Wikimedia images.` : `
+       B. RESTRICTION: NO REAL IMAGES OR EXTERNAL MEDIA
+          - STRICTLY DO NOT generate any <<IMAGE: ...>> placeholders.
+          - STRICTLY DO NOT provide any image URLs.
+          - Use Mermaid diagrams ONLY for all visualizations.
+          
+       C. MERMAID DIAGRAMS ONLY:
+          - Rely entirely on Mermaid diagrams to visualize concepts, processes, and structures.
+          - Ensure text in diagrams is descriptive enough to substitute for real images.`
+
     const contentPrompt = `You are a specialized tutor. Write a STRICTLY DETAILED educational guide for the topic: "${topicTitle}".
           
     Context: Part of a course on "${subjectTitle}".
@@ -235,32 +266,7 @@ export async function POST(request) {
           * Computer Science: Use flowchart for algorithms, classDiagram for OOP, sequenceDiagram for protocols
           * Project Management: Use gantt for schedules, flowchart for workflows
           
-       B. For REAL IMAGES (photos, scientific diagrams, anatomical structures):
-          - Use placeholder syntax: <<IMAGE: very specific search query>>
-          - Be VERY SPECIFIC with field-appropriate terms
-          
-          FIELD-SPECIFIC SEARCH EXAMPLES:
-          * Biology: "mitochondria labeled diagram", "DNA double helix structure", "cell membrane phospholipid bilayer"
-          * Chemistry: "periodic table elements", "covalent bond molecular structure", "benzene ring structure"
-          * Physics: "electromagnetic spectrum wavelength diagram", "newton laws motion illustration"
-          * Math: "unit circle trigonometry", "derivative graph slope tangent"
-          * Geography: "tectonic plates world map", "water cycle diagram labeled"
-          
-       C. HYBRID APPROACH FOR SCIENCE SUBJECTS (IMPORTANT):
-          For Biology, Physics, Chemistry, and Math topics:
-          - Use BOTH Mermaid diagrams AND Wikimedia images together
-          - Mermaid: For PROCESSES, FLOWS, RELATIONSHIPS (e.g., metabolic pathways, circuit diagrams, reaction sequences)
-          - Wikimedia: For STRUCTURES, ANATOMY, PHOTOGRAPHS (e.g., cell diagrams, molecular structures, equipment photos)
-          
-          EXAMPLE for Biology topic "Protein Synthesis":
-          - Use Mermaid flowchart: Show the steps DNA → mRNA → Protein
-          - Use <<IMAGE: ribosome protein synthesis diagram labeled>>: Show actual ribosome structure
-          
-          EXAMPLE for Physics topic "Electric Circuits":
-          - Use Mermaid flowchart: Show current flow and logic
-          - Use <<IMAGE: series parallel circuit diagram>>: Show actual circuit diagrams
-          
-       D. Do NOT provide any URLs - they will be replaced automatically with Wikimedia images.
+${visualInstructions}
     6. Completeness: Do not refer to external sources. Explain it ALL here.
     7. Format: Return ONLY the content in Markdown format. Do not wrap in JSON.
     

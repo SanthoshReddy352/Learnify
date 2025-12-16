@@ -33,7 +33,7 @@ export default function Dashboard() {
   const [hasProfile, setHasProfile] = useState(false)
 
   const [hasGeminiKey, setHasGeminiKey] = useState(true)
-  const [hasHfKey, setHasHfKey] = useState(true)
+
   const [generating, setGenerating] = useState(false) 
   const [creationMode, setCreationMode] = useState('ai') // 'ai' | 'manual'
   const supabase = createClient()
@@ -78,7 +78,7 @@ export default function Dashboard() {
       if (response.ok) {
         const data = await response.json()
         setHasGeminiKey(data.hasGeminiKey)
-        setHasHfKey(data.hasHfKey)
+
       }
     } catch (error) {
       console.error('Failed to check API keys:', error)
@@ -371,7 +371,7 @@ export default function Dashboard() {
 
 
         {/* API Key Missing Alert */}
-        {(!hasGeminiKey || !hasHfKey) && !loading && (
+        {(!hasGeminiKey) && !loading && (
           <div className="mb-8 p-4 rounded-lg bg-orange-500/10 border border-orange-500/20 flex flex-col sm:flex-row items-start sm:items-center gap-4 animate-in fade-in slide-in-from-top-4">
              <div className="p-2 bg-orange-500/20 rounded-full shrink-0">
                <Key className="h-5 w-5 text-orange-500" />
@@ -381,11 +381,6 @@ export default function Dashboard() {
                {!hasGeminiKey && (
                  <p className="text-sm text-muted-foreground">
                    • <strong>Gemini Key</strong> is missing. Curriculum and text generation will not work.
-                 </p>
-               )}
-               {!hasHfKey && (
-                 <p className="text-sm text-muted-foreground">
-                   • <strong>Hugging Face Key</strong> is missing. Image generation will be disabled.
                  </p>
                )}
              </div>
@@ -425,7 +420,7 @@ export default function Dashboard() {
                     <CardTitle className="text-xl font-bold tracking-tight group-hover:text-primary transition-colors flex-1">{subject.title}</CardTitle>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
                           <span className="sr-only">Open menu</span>
                           <MoreVertical className="h-4 w-4" />
                         </Button>
