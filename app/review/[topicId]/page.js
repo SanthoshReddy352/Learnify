@@ -18,6 +18,7 @@ import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import CodeBlock, { cleanCodeContent } from '@/components/sub-components/CodeBlock'
 import Flashcard from '@/components/sub-components/Flashcard'
+import DoubtChat from '@/components/sub-components/DoubtChat'
 import MarkdownComponents from '@/components/sub-components/MarkdownComponents'
 
 
@@ -372,6 +373,7 @@ export default function ReviewPage() {
                       </ReactMarkdown>
                     </div>
                   )}
+
                 </div>
               )}
             </div>
@@ -437,6 +439,16 @@ export default function ReviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Doubt Chat - Conditionally rendered if content is shown */}
+      {showContent && (
+        <DoubtChat 
+            topicId={topicId}
+            topicTitle={topic.title}
+            subjectTitle={subject.title}
+            contentStatus={!!(topic.content && topic.content.length > 50)}
+        />
+      )}
     </div>
   )
 }
