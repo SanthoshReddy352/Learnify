@@ -85,7 +85,7 @@ const MarkdownComponents = {
   ),
   code: CodeBlock,
   pre: ({ node, ...props }) => (
-    <pre className="!bg-transparent !p-0 !m-0 !rounded-none !border-none !shadow-none !ring-0 overflow-visible" {...props} />
+    <div className="!bg-transparent !p-0 !m-0 !rounded-none !border-none !shadow-none !ring-0 overflow-visible" {...props} />
   ),
   blockquote: ({ node, ...props }) => (
     <blockquote className="my-8 pl-6 border-l-4 border-primary bg-primary/5 py-4 pr-4 rounded-r-xl italic text-lg text-muted-foreground" {...props} />

@@ -8,12 +8,20 @@ import { MessageCircle, X, Send, Sparkles, User, Bot, Trash2 } from 'lucide-reac
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 
+import { createPortal } from 'react-dom'
+
 export default function DoubtChat({ topicId, topicTitle, subjectTitle, contentStatus }) {
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState([])
     const [input, setInput] = useState('')
     const [loading, setLoading] = useState(false)
+    const [mounted, setMounted] = useState(false)
     const messagesEndRef = useRef(null)
+
+    useEffect(() => {
+        setMounted(true)
+        return () => setMounted(false)
+    }, [])
 
     // Load history from session storage on mount
     useEffect(() => {
@@ -91,17 +99,11 @@ export default function DoubtChat({ topicId, topicTitle, subjectTitle, contentSt
         toast.info('Chat history cleared')
     }
 
-    const [mounted, setMounted] = useState(false)
 
-    useEffect(() => {
-        setMounted(true)
-        return () => setMounted(false)
-    }, [])
 
     if (!mounted || !contentStatus) return null
 
     // Use Portal to ensure it sits on top of everything and isn't affected by parent transforms
-    const { createPortal } = require('react-dom')
 
     return createPortal(
         <>
