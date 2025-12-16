@@ -11,6 +11,10 @@ import { useRouter } from 'next/navigation'
 export default function SettingsPage() {
   const router = useRouter()
   const [apiKey, setApiKey] = useState('')
+  const [fetching, setFetching] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [hasExistingKey, setHasExistingKey] = useState(false)
+  const [maskedKey, setMaskedKey] = useState('')
 
 
   useEffect(() => {
