@@ -58,19 +58,19 @@ const ContentImage = ({ src, alt, ...props }) => {
 
 const MarkdownComponents = {
   h1: ({ node, ...props }) => (
-    <h1 className="text-2xl md:text-3xl font-bold mt-6 md:mt-10 mb-4 md:mb-6 bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent inline-block pb-2 border-b border-border w-full" {...props} />
+    <h1 className="text-2xl md:text-3xl font-bold mt-6 md:mt-10 mb-4 md:mb-6 bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent inline-block pb-2 border-b border-border w-full break-words" {...props} />
   ),
   h2: ({ node, ...props }) => (
-    <h2 className="text-lg md:text-2xl font-bold mt-6 md:mt-8 mb-3 md:mb-4 text-foreground flex items-center gap-2 group" {...props}>
+    <h2 className="text-lg md:text-2xl font-bold mt-6 md:mt-8 mb-3 md:mb-4 text-foreground flex items-center gap-2 group break-words" {...props}>
       <div className="h-6 w-1 md:h-8 md:w-1 bg-primary rounded-full shrink-0" />
       {props.children}
     </h2>
   ),
   h3: ({ node, ...props }) => (
-    <h3 className="text-lg md:text-xl font-semibold mt-5 md:mt-6 mb-2 md:mb-3 text-foreground/90 pl-3 md:pl-4 border-l-2 border-primary/30" {...props} />
+    <h3 className="text-lg md:text-xl font-semibold mt-5 md:mt-6 mb-2 md:mb-3 text-foreground/90 pl-3 md:pl-4 border-l-2 border-primary/30 break-words" {...props} />
   ),
   p: ({ node, ...props }) => (
-    <p className="mb-4 md:mb-6 leading-relaxed text-muted-foreground text-base md:text-lg" {...props} />
+    <p className="mb-4 md:mb-6 leading-relaxed text-muted-foreground text-base md:text-lg break-words" {...props} />
   ),
   ul: ({ node, ...props }) => (
     <ul className="list-disc list-outside ml-4 md:ml-6 space-y-2 md:space-y-3 my-4 md:my-6 text-muted-foreground marker:text-primary" {...props} />
@@ -79,7 +79,7 @@ const MarkdownComponents = {
     <ol className="list-decimal list-outside ml-4 md:ml-6 space-y-2 md:space-y-3 my-4 md:my-6 text-muted-foreground marker:text-primary list-decimal" {...props} />
   ),
   li: ({ node, ...props }) => (
-    <li className="[&>p]:!my-0 [&>p]:!inline pl-1 md:pl-0" {...props}>
+    <li className="[&>p]:!my-0 [&>p]:!inline pl-1 md:pl-0 break-words" {...props}>
       {props.children}
     </li>
   ),
@@ -102,7 +102,7 @@ const MarkdownComponents = {
     <td className="border-b border-border/50 p-4 text-muted-foreground tabular-nums" {...props} />
   ),
   a: ({ node, ...props }) => (
-    <a className="text-primary hover:text-primary/80 transition-colors underline decoration-primary/30 underline-offset-4 hover:decoration-primary" target="_blank" rel="noopener noreferrer" {...props} />
+    <a className="text-primary hover:text-primary/80 transition-colors underline decoration-primary/30 underline-offset-4 hover:decoration-primary break-words" target="_blank" rel="noopener noreferrer" {...props} />
   ),
   hr: ({ node, ...props }) => (
     <hr className="my-10 border-border" {...props} />

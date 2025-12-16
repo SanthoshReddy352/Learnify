@@ -231,3 +231,17 @@
 .prose :where(code):not(:where([class~="not-prose"] *))::after {
   content: "" !important;
 }
+
+/* Fix Math Formula Oveflow */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  padding: 0.5rem 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.katex-html {
+  overflow-x: auto;
+  max-width: 100%;
+}

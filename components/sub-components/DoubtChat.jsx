@@ -167,7 +167,7 @@ export default function DoubtChat({ topicId, topicTitle, subjectTitle, contentSt
                                     }`}>
                                         <ReactMarkdown 
                                             components={{
-                                                p: ({node, ...props}) => <p {...props} className="break-words white-space-pre-wrap" />
+                                                p: ({node, ...props}) => <p {...props} className="break-words whitespace-pre-wrap" />
                                             }}
                                         >
                                             {msg.content}
