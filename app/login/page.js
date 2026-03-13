@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,19 +16,21 @@ import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { Browser } from '@capacitor/browser'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const supabase = createClient()
+  const nextPath = searchParams.get('next') || '/dashboard'
 
   useEffect(() => {
     // Check if user is already logged in
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        router.push('/dashboard')
+        router.push(nextPath)
       }
     }
     checkUser()
@@ -36,7 +38,7 @@ export default function LoginPage() {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || session) {
-        router.push('/dashboard')
+        router.push(nextPath)
       }
     })
 
@@ -68,7 +70,7 @@ export default function LoginPage() {
       subscription.unsubscribe()
       appListener.then(handle => handle.remove())
     }
-  }, [])
+  }, [nextPath])
 
   const handleEmailLogin = async (e) => {
     e.preventDefault()
@@ -95,7 +97,7 @@ export default function LoginPage() {
 
   const handleOAuthLogin = async (provider) => {
     // Determine Redirect URL based on Platform
-    let redirectUrl = `${window.location.origin}/auth/callback`
+    let redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
     
     if (Capacitor.isNativePlatform()) {
       redirectUrl = 'com.learnify.app://auth-callback'
@@ -248,5 +250,13 @@ export default function LoginPage() {
       </div>
     </div>
     </>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <LoginContent />
+    </Suspense>
   )
 }

@@ -22,7 +22,16 @@ const nodeColors = {
   mastered: '#10b981',    // Emerald-500
 }
 
-export default function GraphVisualizer({ topics, dependencies, onNodeClick, onEdgeClick, onConnect, onPaneContextMenu }) {
+export default function GraphVisualizer({
+  topics,
+  dependencies,
+  onNodeClick,
+  onEdgeClick,
+  onConnect,
+  onPaneContextMenu,
+  readOnly = false,
+  hideMiniMap = false
+}) {
   const { resolvedTheme } = useTheme()
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -173,8 +182,19 @@ export default function GraphVisualizer({ topics, dependencies, onNodeClick, onE
         onInit={setRfInstance}
         fitView
         minZoom={0.1}
+        nodesDraggable={!readOnly}
+        nodesConnectable={!readOnly}
+        elementsSelectable={!readOnly}
         proOptions={{ hideAttribution: true }}
       >
+        {!hideMiniMap && (
+          <MiniMap
+            pannable
+            zoomable
+            nodeBorderRadius={12}
+            className={isDark ? '!bg-zinc-950/90' : '!bg-white/90'}
+          />
+        )}
         <Background
           color={isDark ? "#3f3f46" : "#a1a1aa"} // Zinc-400 for better visibility in light mode
           gap={16}

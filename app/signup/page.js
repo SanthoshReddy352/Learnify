@@ -1,83 +1,98 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { App } from '@capacitor/app'
+import { Browser } from '@capacitor/browser'
+import { Capacitor } from '@capacitor/core'
+import { ArrowLeft, Github, Loader2, Mail, Sparkles } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { ThemeToggle } from '@/components/sub-components/theme-toggle'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { GoogleIcon } from '@/components/ui/icons'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Brain, Github, ArrowLeft, Loader2, Mail, Sparkles } from 'lucide-react'
-import { toast } from 'sonner'
-import Link from 'next/link'
-import { GoogleIcon } from '@/components/ui/icons'
-import { ThemeToggle } from '@/components/sub-components/theme-toggle'
-import { App } from '@capacitor/app'
-import { Capacitor } from '@capacitor/core'
-import { Browser } from '@capacitor/browser'
+import { createClient } from '@/lib/supabase/client'
 
-export default function SignupPage() {
+function SignupContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const supabase = createClient()
+  const nextPath = searchParams.get('next') || '/dashboard'
 
   useEffect(() => {
-    // Check if user is already logged in
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
       if (session) {
-        router.push('/dashboard')
+        router.push(nextPath)
       }
     }
+
     checkUser()
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || session) {
-        router.push('/dashboard')
+        router.push(nextPath)
       }
     })
 
-    // Listen for the app being opened by a deep link (Custom Scheme)
     const appListener = App.addListener('appUrlOpen', async (data) => {
-      // data.url will contain "com.learnify.app://auth-callback?code=..."
-      if (data.url.includes('auth-callback')) {
-        // Close the browser if open
-        await Browser.close()
-
-        const url = new URL(data.url)
-        const code = url.searchParams.get('code')
-        
-        if (code) {
-           toast.info('Authenticating...')
-           const { error } = await supabase.auth.exchangeCodeForSession(code)
-           
-           if (!error) {
-             toast.success('Successfully logged in!')
-             // The onAuthStateChange listener will handle the redirect
-           } else {
-             toast.error('Failed to exchange code: ' + error.message)
-           }
-        }
+      if (!data.url.includes('auth-callback')) {
+        return
       }
+
+      await Browser.close()
+
+      const url = new URL(data.url)
+      const code = url.searchParams.get('code')
+
+      if (!code) {
+        return
+      }
+
+      toast.info('Authenticating...')
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+      if (error) {
+        toast.error(`Failed to exchange code: ${error.message}`)
+        return
+      }
+
+      toast.success('Successfully logged in!')
     })
 
     return () => {
       subscription.unsubscribe()
-      appListener.then(handle => handle.remove())
+      appListener.then((handle) => handle.remove())
     }
-  }, [])
+  }, [nextPath, router, supabase.auth])
 
   const handleEmailSignup = async (e) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      let emailRedirectTo = `${window.location.origin}/auth/callback`
+      let emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
       if (Capacitor.isNativePlatform()) {
-         emailRedirectTo = 'com.learnify.app://auth-callback'
+        emailRedirectTo = 'com.learnify.app://auth-callback'
       }
 
       const { error } = await supabase.auth.signUp({
@@ -93,8 +108,7 @@ export default function SignupPage() {
       }
 
       toast.success('Check your email to confirm your account!')
-      // Optionally redirect to a confirmation page or login
-      router.push('/login')
+      router.push(`/login?next=${encodeURIComponent(nextPath)}`)
     } catch (error) {
       toast.error(error.message || 'Failed to sign up')
     } finally {
@@ -103,9 +117,8 @@ export default function SignupPage() {
   }
 
   const handleOAuthLogin = async (provider) => {
-    // Determine Redirect URL based on Platform
-    let redirectUrl = `${window.location.origin}/auth/callback`
-    
+    let redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
+
     if (Capacitor.isNativePlatform()) {
       redirectUrl = 'com.learnify.app://auth-callback'
     }
@@ -123,39 +136,51 @@ export default function SignupPage() {
       return
     }
 
-    if (data?.url) {
-      if (Capacitor.isNativePlatform()) {
-        try {
-          await Browser.open({ url: data.url })
-        } catch (e) {
-          console.error("Browser open failed", e)
-          // Fallback if browser plugin fails for some reason (though it shouldn't if installed)
-           window.location.href = data.url
-        }
-      } else {
+    if (!data?.url) {
+      return
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Browser.open({ url: data.url })
+      } catch (browserError) {
+        console.error('Browser open failed', browserError)
         window.location.href = data.url
       }
+      return
     }
+
+    window.location.href = data.url
   }
 
   return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4 selection:bg-primary/20 selection:text-primary relative overflow-hidden">
-        {/* Decorative Background */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] mix-blend-screen opacity-50"></div>
-          <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/10 rounded-full blur-[120px] mix-blend-screen opacity-50"></div>
+    <>
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 z-50">
+        <ThemeToggle />
+      </div>
+
+      <div className="min-h-screen bg-background relative flex items-center justify-center overflow-hidden p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] selection:bg-primary/20 selection:text-primary">
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute top-[-10%] right-[-10%] h-[40%] w-[40%] rounded-full bg-primary/10 opacity-50 blur-[120px] mix-blend-screen" />
+          <div className="absolute bottom-[-10%] left-[-10%] h-[40%] w-[40%] rounded-full bg-accent/10 opacity-50 blur-[120px] mix-blend-screen" />
         </div>
 
-        <div className="w-full max-w-md relative z-10">
-          <div className="pt-20"></div>
+        <div className="relative z-10 w-full max-w-md">
+          <Button
+            variant="ghost"
+            onClick={() => router.push('/')}
+            className="mb-8 hover:bg-white/5 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Home
+          </Button>
 
-          <Card className="glass-card border-white/5 shadow-2xl relative overflow-hidden">
-            {/* Subtle gradient overlay */}
+          <Card className="glass-card relative overflow-hidden border-white/5 shadow-2xl">
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
-            
-            <CardHeader className="space-y-1 text-center pb-8">
-              <div className="flex justify-center mb-4">
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+
+            <CardHeader className="space-y-1 pb-8 text-center">
+              <div className="mb-4 flex justify-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
                   <Sparkles className="h-6 w-6 text-primary" />
                 </div>
               </div>
@@ -164,20 +189,21 @@ export default function SignupPage() {
                 Start your journey to master any subject
               </CardDescription>
             </CardHeader>
+
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => handleOAuthLogin('google')}
-                  className="glass border-white/10 hover:bg-white/5 hover:border-white/20"
+                  className="glass border-white/10 hover:border-white/20 hover:bg-white/5"
                 >
                   <GoogleIcon className="mr-2 h-4 w-4" />
                   Google
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => handleOAuthLogin('github')}
-                  className="glass border-white/10 hover:bg-white/5 hover:border-white/20"
+                  className="glass border-white/10 hover:border-white/20 hover:bg-white/5"
                 >
                   <Github className="mr-2 h-4 w-4" />
                   GitHub
@@ -189,7 +215,7 @@ export default function SignupPage() {
                   <span className="w-full border-t border-white/10" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background/50 backdrop-blur-xl px-2 text-muted-foreground">
+                  <span className="bg-background/50 px-2 text-muted-foreground backdrop-blur-xl">
                     Or continue with
                   </span>
                 </div>
@@ -198,32 +224,32 @@ export default function SignupPage() {
               <form onSubmit={handleEmailSignup} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="name@example.com" 
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="bg-white/5 border-white/10 focus:border-primary/50 text-foreground placeholder:text-muted-foreground/50"
+                    className="border-white/10 bg-white/5 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input 
-                    id="password" 
-                    type="password" 
+                  <Input
+                    id="password"
+                    type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
-                    className="bg-white/5 border-white/10 focus:border-primary/50 text-foreground"
+                    className="border-white/10 bg-white/5 text-foreground focus:border-primary/50"
                   />
                   <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
                 </div>
-                <Button 
-                  type="submit" 
-                  className="w-full bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
+                <Button
+                  type="submit"
+                  className="w-full bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90"
                   disabled={loading}
                 >
                   {loading ? (
@@ -240,22 +266,40 @@ export default function SignupPage() {
                 </Button>
               </form>
             </CardContent>
+
             <CardFooter className="flex flex-col space-y-4 text-center text-sm text-muted-foreground">
               <div>
                 Already have an account?{' '}
-                <Link href="/login" className="text-primary hover:text-primary/80 font-medium hover:underline underline-offset-4 transition-colors">
+                <Link
+                  href={`/login?next=${encodeURIComponent(nextPath)}`}
+                  className="font-medium text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
+                >
                   Sign in
                 </Link>
               </div>
               <div className="text-xs text-muted-foreground/60">
                 By clicking continue, you agree to our{' '}
-                <a href="#" className="hover:text-foreground underline underline-offset-2">Terms of Service</a>
-                {' '}and{' '}
-                <a href="#" className="hover:text-foreground underline underline-offset-2">Privacy Policy</a>.
+                <a href="#" className="underline underline-offset-2 hover:text-foreground">
+                  Terms of Service
+                </a>{' '}
+                and{' '}
+                <a href="#" className="underline underline-offset-2 hover:text-foreground">
+                  Privacy Policy
+                </a>
+                .
               </div>
             </CardFooter>
           </Card>
         </div>
       </div>
-    )
+    </>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <SignupContent />
+    </Suspense>
+  )
 }

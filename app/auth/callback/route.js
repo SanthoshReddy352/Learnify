@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { claimPendingInvitesForUser } from '@/lib/classrooms/queries'
 
 export async function GET(request) {
   const requestUrl = new URL(request.url)
@@ -9,6 +10,10 @@ export async function GET(request) {
   if (code) {
     const supabase = await createClient()
     await supabase.auth.exchangeCodeForSession(code)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await claimPendingInvitesForUser(supabase, user)
+    }
   }
 
   let origin = requestUrl.origin

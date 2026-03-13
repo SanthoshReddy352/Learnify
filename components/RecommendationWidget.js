@@ -6,7 +6,7 @@ import { Play, RotateCw, Clock, Brain, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { isDueForReview } from '@/lib/sm2'
 
-export default function RecommendationWidget({ topics }) {
+export default function RecommendationWidget({ topics, getTopicHref }) {
   const router = useRouter()
 
   // 1. Filter Topics by State
@@ -36,11 +36,11 @@ export default function RecommendationWidget({ topics }) {
   ].slice(0, 5)
 
   const handleStart = (topic, type) => {
-    if (type === 'review') {
-      router.push(`/review/${topic.id}`)
-    } else {
-      router.push(`/learn/${topic.id}`)
-    }
+    const href = getTopicHref
+      ? getTopicHref(topic, type)
+      : (type === 'review' ? `/review/${topic.id}` : `/learn/${topic.id}`)
+
+    router.push(href)
   }
 
   const getTypeConfig = (type) => {

@@ -10,7 +10,14 @@ import ReactMarkdown from 'react-markdown'
 
 import { createPortal } from 'react-dom'
 
-export default function DoubtChat({ topicId, topicTitle, subjectTitle, contentStatus }) {
+export default function DoubtChat({
+    topicId,
+    topicTitle,
+    subjectTitle,
+    contentStatus,
+    classroomId = null,
+    classroomCourseId = null
+}) {
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState([])
     const [input, setInput] = useState('')
@@ -69,7 +76,9 @@ export default function DoubtChat({ topicId, topicTitle, subjectTitle, contentSt
                 body: JSON.stringify({
                     topicId,
                     message: userMsg.content,
-                    history: messages.slice(-10) // Send last 10 messages for context
+                    history: messages.slice(-10), // Send last 10 messages for context
+                    classroomId,
+                    classroomCourseId
                 })
             })
 

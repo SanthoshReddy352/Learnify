@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitle }) {
+export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitle, onSaveNotes = null }) {
   const [isOpen, setIsOpen] = useState(false)
   
   // Pre-fill with heading if empty
@@ -150,7 +150,9 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
     setIsSaving(true)
     setSaveStatus('saving')
     try {
-      const result = await saveTopicNotes(topicId, currentNotes)
+      const result = onSaveNotes
+        ? await onSaveNotes(topicId, currentNotes)
+        : await saveTopicNotes(topicId, currentNotes)
       if (result.success) {
         setSaveStatus('saved')
       } else {

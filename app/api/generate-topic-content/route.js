@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { generateWithGemini } from '@/lib/gemini'
+import { resolveTopicAccess } from '@/lib/classrooms/access'
 
 // Wikimedia Commons API search for educational images
 async function searchWikimediaImage(query) {
@@ -68,23 +69,33 @@ export async function POST(request) {
     }
 
     const body = await request.json()
-    const { topicId, subjectTitle, topicTitle, topicDescription, difficulty = 5 } = body
+    const {
+      topicId,
+      subjectTitle,
+      topicTitle,
+      topicDescription,
+      difficulty = 5,
+      classroomId,
+      classroomCourseId
+    } = body
 
     if (!topicId || !topicTitle) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Verify ownership
-    const { data: topic, error: topicError } = await supabase
-      .from('topics')
-      .select('*, subjects!inner(user_id)')
-      .eq('id', topicId)
-      .eq('subjects.user_id', user.id)
-      .single()
-
-    if (topicError || !topic) {
-      return NextResponse.json({ error: 'Topic not found or access denied' }, { status: 404 })
+    const topicAccess = await resolveTopicAccess(supabase, {
+      userId: user.id,
+      topicId,
+      classroomId,
+      classroomCourseId
+    })
+    if (topicAccess.mode === 'classroom' && !topicAccess.adminClient) {
+      return NextResponse.json({
+        error: 'Classroom content generation requires SUPABASE_SERVICE_ROLE_KEY on the server'
+      }, { status: 500 })
     }
+    const effectiveTopic = topicAccess.topic
+    const effectiveSubject = topicAccess.subject
 
     // === FETCH USER'S API KEY ===
     const { data: userData, error: userError } = await supabase
@@ -127,8 +138,13 @@ export async function POST(request) {
     }
 
     // === SUBJECT-BASED VISUAL REASONING ===
+    const effectiveSubjectTitle = subjectTitle || effectiveSubject?.title || 'Untitled Subject'
+    const effectiveTopicTitle = topicTitle || effectiveTopic?.title || 'Untitled Topic'
+    const effectiveTopicDescription = topicDescription || effectiveTopic?.description || effectiveTopicTitle
+    const effectiveDifficulty = difficulty || effectiveTopic?.difficulty || 5
+
     const standardSubjects = ['physics', 'maths', 'mathematics', 'chemistry', 'biology', 'science']
-    const lowerSubject = (subjectTitle || '').toLowerCase()
+    const lowerSubject = effectiveSubjectTitle.toLowerCase()
     const isStandardSubject = standardSubjects.some(s => lowerSubject.includes(s))
 
     const visualInstructions = isStandardSubject ? `
@@ -157,10 +173,10 @@ export async function POST(request) {
           - Rely entirely on Mermaid diagrams to visualize concepts, processes, and structures.
           - Ensure text in diagrams is descriptive enough to substitute for real images.`
 
-    const contentPrompt = `You are a specialized tutor. Write a STRICTLY DETAILED educational guide for the topic: "${topicTitle}".
+    const contentPrompt = `You are a specialized tutor. Write a STRICTLY DETAILED educational guide for the topic: "${effectiveTopicTitle}".
           
-    Context: Part of a course on "${subjectTitle}".
-    Difficulty: ${difficulty}/5.
+    Context: Part of a course on "${effectiveSubjectTitle}".
+    Difficulty: ${effectiveDifficulty}/5.
     Target Audience: Student.
     ${personalizationContext}
 
@@ -283,9 +299,9 @@ ${visualInstructions}
     6. Completeness: Do not refer to external sources. Explain it ALL here.
     7. Format: Return ONLY the content in Markdown format. Do not wrap in JSON.
     
-    Topic Description: ${topicDescription || topicTitle}`
+    Topic Description: ${effectiveTopicDescription}`
 
-    console.log(`Generating content for topic: ${topicTitle} with Gemini`)
+    console.log(`Generating content for topic: ${effectiveTopicTitle} with Gemini`)
 
     const contentResponseData = await generateWithGemini([
           { role: 'system', content: 'You are an expert tutor. Provide comprehensive and exhaustive educational content.' },
@@ -363,7 +379,8 @@ ${visualInstructions}
     }
 
     // Update the topic with the new content
-    const { error: updateError } = await supabase
+    const writer = topicAccess.adminClient || supabase
+    const { error: updateError } = await writer
         .from('topics')
         .update({ content: finalContent })
         .eq('id', topicId)

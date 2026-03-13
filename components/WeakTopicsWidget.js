@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { AlertTriangle, TrendingUp, RotateCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-export default function WeakTopicsWidget({ topics }) {
+export default function WeakTopicsWidget({ topics, getReviewHref }) {
   const router = useRouter()
 
   if (!topics || topics.length === 0) {
@@ -39,7 +39,7 @@ export default function WeakTopicsWidget({ topics }) {
                 size="sm" 
                 variant="outline"
                 className="shrink-0 h-8 border-orange-500/30 text-orange-500 hover:bg-orange-500/20 hover:text-orange-400"
-                onClick={() => router.push(`/review/${topic.id}`)}
+                onClick={() => router.push(getReviewHref ? getReviewHref(topic) : `/review/${topic.id}`)}
             >
                 <RotateCw className="mr-2 h-3.5 w-3.5" />
                 Review

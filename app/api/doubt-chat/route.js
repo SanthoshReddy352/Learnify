@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { generateWithGemini } from '@/lib/gemini'
+import { resolveTopicAccess } from '@/lib/classrooms/access'
 
 export async function POST(request) {
     try {
@@ -12,21 +13,22 @@ export async function POST(request) {
         }
 
         const body = await request.json()
-        const { topicId, message, history = [] } = body
+        const { topicId, message, history = [], classroomId = null, classroomCourseId = null } = body
 
         if (!topicId || !message) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
         // 1. Fetch Topic Context (including content)
-        const { data: topic, error: topicError } = await supabase
-            .from('topics')
-            .select('*, subjects!inner(*)')
-            .eq('id', topicId)
-            .single()
-
-        if (topicError || !topic) {
-            return NextResponse.json({ error: 'Topic not found' }, { status: 404 })
+        const topicAccess = await resolveTopicAccess(supabase, {
+            userId: user.id,
+            topicId,
+            classroomId,
+            classroomCourseId
+        })
+        const topic = {
+            ...topicAccess.topic,
+            subjects: topicAccess.subject
         }
 
         // 2. Fetch User Profile for Personalization
@@ -83,6 +85,14 @@ export async function POST(request) {
 
     } catch (error) {
         console.error('Doubt Chat Error:', error)
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 })
+        const status = error.message === 'Unauthorized'
+            ? 401
+            : error.message === 'Topic is locked'
+                ? 403
+                : error.message.includes('not found')
+                    ? 404
+                    : 500
+
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status })
     }
 }
