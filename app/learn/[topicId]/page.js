@@ -21,6 +21,8 @@ import { ThemeToggle } from '@/components/sub-components/theme-toggle'
 import CodeBlock, { cleanCodeContent } from '@/components/sub-components/CodeBlock'
 import Flashcard from '@/components/sub-components/Flashcard'
 import DoubtChat from '@/components/sub-components/DoubtChat'
+import StickyNoteWidget from '@/components/sub-components/StickyNoteWidget'
+import SelectionHighlighter from '@/components/sub-components/SelectionHighlighter'
 
 
 import MarkdownComponents from '@/components/sub-components/MarkdownComponents'
@@ -512,6 +514,16 @@ export default function LearnPage() {
           subjectTitle={subject.title}
           contentStatus={!!(topic.content && topic.content !== topic.description && topic.content.length > 50)}
         />
+
+        {/* Sticky Note Widget */}
+        <StickyNoteWidget 
+          topicId={topicId} 
+          topicTitle={topic.title}
+          initialNotes={topic.user_notes} 
+        />
+
+        {/* Text Selection Highlighter */}
+        <SelectionHighlighter />
       </div>
   )
 }
