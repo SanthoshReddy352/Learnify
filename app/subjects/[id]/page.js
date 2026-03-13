@@ -1075,7 +1075,7 @@ export default function SubjectPage() {
                 <div className="flex items-center justify-between mb-2">
                    <div>
                      <h2 className="text-2xl font-bold tracking-tight">Compiled Notes</h2>
-                     <p className="text-muted-foreground text-sm">All the sticky notes you've taken across this subject's topics.</p>
+                     <p className="text-muted-foreground text-sm">All the sticky notes you&apos;ve taken across this subject&apos;s topics.</p>
                    </div>
                    <Button onClick={handleDownloadNotes} variant="outline" className="glass hover:bg-white/5">
                      <Download className="mr-2 h-4 w-4" /> Download .md
@@ -1090,7 +1090,7 @@ export default function SubjectPage() {
                          </div>
                          <h3 className="text-xl font-semibold mb-2">No Notes Yet</h3>
                          <p className="text-muted-foreground max-w-sm">
-                            Open a topic and click the sticky note icon to jot down your thoughts. They'll appear here!
+                            Open a topic and click the sticky note icon to jot down your thoughts. They&apos;ll appear here!
                          </p>
                       </div>
                    ) : (
@@ -1599,7 +1599,7 @@ export default function SubjectPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Topic?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete the topic <span className="font-semibold text-foreground">"{topicToDelete?.title}"</span>? 
+              Are you sure you want to permanently delete the topic <span className="font-semibold text-foreground">&quot;{topicToDelete?.title}&quot;</span>? 
               This will remove all associated content and dependencies. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
