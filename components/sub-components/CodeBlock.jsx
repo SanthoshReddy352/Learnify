@@ -616,7 +616,7 @@ const MermaidDiagram = ({ code }) => {
 
   return (
     <>
-      <figure className="my-8 group">
+      <figure className="my-8 group" data-mermaid-code={encodeURIComponent(code)}>
         <div 
           className="rounded-xl overflow-hidden border border-border shadow-lg cursor-zoom-in transition-all hover:shadow-xl hover:border-primary/30 bg-card"
           onClick={() => setIsOpen(true)}
@@ -689,7 +689,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
   // "Single Line" Block
   if (isSingleLine) {
     return (
-      <div className="relative group my-4 inline-block max-w-full align-middle w-full">
+      <div className="relative group my-4 inline-block max-w-full align-middle w-full" data-code={encodeURIComponent(codeContent)} data-language={language || ''}>
          <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
              <button
             onClick={handleCopy}
@@ -706,7 +706,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
   }
 
   return (
-    <div className="relative group my-8 rounded-xl overflow-hidden border border-border dark:border-white/5 shadow-2xl bg-zinc-50 dark:bg-[#0d1117]">
+    <div className="relative group my-8 rounded-xl overflow-hidden border border-border dark:border-white/5 shadow-2xl bg-zinc-50 dark:bg-[#0d1117]" data-code={encodeURIComponent(codeContent)} data-language={language || ''}>
       <div className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-white/5 border-b border-border dark:border-white/5">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
