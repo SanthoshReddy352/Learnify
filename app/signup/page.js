@@ -139,136 +139,123 @@ export default function SignupPage() {
   }
 
   return (
-    <>
-      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 z-50">
-        <ThemeToggle />
+      <div className="min-h-screen bg-background flex items-center justify-center p-4 selection:bg-primary/20 selection:text-primary relative overflow-hidden">
+        {/* Decorative Background */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] mix-blend-screen opacity-50"></div>
+          <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/10 rounded-full blur-[120px] mix-blend-screen opacity-50"></div>
+        </div>
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="pt-20"></div>
+
+          <Card className="glass-card border-white/5 shadow-2xl relative overflow-hidden">
+            {/* Subtle gradient overlay */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
+            
+            <CardHeader className="space-y-1 text-center pb-8">
+              <div className="flex justify-center mb-4">
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold tracking-tight">Create an account</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Start your journey to master any subject
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleOAuthLogin('google')}
+                  className="glass border-white/10 hover:bg-white/5 hover:border-white/20"
+                >
+                  <GoogleIcon className="mr-2 h-4 w-4" />
+                  Google
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleOAuthLogin('github')}
+                  className="glass border-white/10 hover:bg-white/5 hover:border-white/20"
+                >
+                  <Github className="mr-2 h-4 w-4" />
+                  GitHub
+                </Button>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-white/10" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background/50 backdrop-blur-xl px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleEmailSignup} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="name@example.com" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="bg-white/5 border-white/10 focus:border-primary/50 text-foreground placeholder:text-muted-foreground/50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="bg-white/5 border-white/10 focus:border-primary/50 text-foreground"
+                  />
+                  <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Sign Up with Email
+                    </>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+            <CardFooter className="flex flex-col space-y-4 text-center text-sm text-muted-foreground">
+              <div>
+                Already have an account?{' '}
+                <Link href="/login" className="text-primary hover:text-primary/80 font-medium hover:underline underline-offset-4 transition-colors">
+                  Sign in
+                </Link>
+              </div>
+              <div className="text-xs text-muted-foreground/60">
+                By clicking continue, you agree to our{' '}
+                <a href="#" className="hover:text-foreground underline underline-offset-2">Terms of Service</a>
+                {' '}and{' '}
+                <a href="#" className="hover:text-foreground underline underline-offset-2">Privacy Policy</a>.
+              </div>
+            </CardFooter>
+          </Card>
+        </div>
       </div>
-
-      <div className="min-h-screen bg-background flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] selection:bg-primary/20 selection:text-primary relative overflow-hidden">
-      {/* Decorative Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] mix-blend-screen opacity-50"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/10 rounded-full blur-[120px] mix-blend-screen opacity-50"></div>
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
-        <Button 
-          variant="ghost" 
-          onClick={() => router.push('/')} 
-          className="mb-8 hover:bg-white/5 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
-        </Button>
-
-        <Card className="glass-card border-white/5 shadow-2xl relative overflow-hidden">
-          {/* Subtle gradient overlay */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50" />
-          
-          <CardHeader className="space-y-1 text-center pb-8">
-            <div className="flex justify-center mb-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-bold tracking-tight">Create an account</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Start your journey to master any subject
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Button 
-                variant="outline" 
-                onClick={() => handleOAuthLogin('google')}
-                className="glass border-white/10 hover:bg-white/5 hover:border-white/20"
-              >
-                <GoogleIcon className="mr-2 h-4 w-4" />
-                Google
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => handleOAuthLogin('github')}
-                className="glass border-white/10 hover:bg-white/5 hover:border-white/20"
-              >
-                <Github className="mr-2 h-4 w-4" />
-                GitHub
-              </Button>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-white/10" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background/50 backdrop-blur-xl px-2 text-muted-foreground">
-                  Or continue with
-                </span>
-              </div>
-            </div>
-
-            <form onSubmit={handleEmailSignup} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
-                  placeholder="name@example.com" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="bg-white/5 border-white/10 focus:border-primary/50 text-foreground placeholder:text-muted-foreground/50"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="bg-white/5 border-white/10 focus:border-primary/50 text-foreground"
-                />
-                <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating account...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Sign Up with Email
-                  </>
-                )}
-              </Button>
-            </form>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4 text-center text-sm text-muted-foreground">
-            <div>
-              Already have an account?{' '}
-              <Link href="/login" className="text-primary hover:text-primary/80 font-medium hover:underline underline-offset-4 transition-colors">
-                Sign in
-              </Link>
-            </div>
-            <div className="text-xs text-muted-foreground/60">
-              By clicking continue, you agree to our{' '}
-              <a href="#" className="hover:text-foreground underline underline-offset-2">Terms of Service</a>
-              {' '}and{' '}
-              <a href="#" className="hover:text-foreground underline underline-offset-2">Privacy Policy</a>.
-            </div>
-          </CardFooter>
-        </Card>
-      </div>
-      </div>
-    </>
-  )
+    )
 }

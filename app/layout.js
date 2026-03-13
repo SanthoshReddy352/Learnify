@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DownloadBanner } from "@/components/download-banner";
 import { AppInitializer } from "@/components/AppInitializer";
+import { GlobalNavigation } from "@/components/GlobalNavigation";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -43,6 +44,8 @@ export const metadata = {
   },
 };
 
+import { TooltipProvider } from "@/components/ui/tooltip";
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -55,13 +58,17 @@ export default function RootLayout({ children }) {
           enableSystem
           disableTransitionOnChange
         >
-          <AppInitializer />
-          {children}
-          <DownloadBanner />
+          <TooltipProvider>
+            <AppInitializer />
+            <GlobalNavigation>
+              {children}
+            </GlobalNavigation>
+            <DownloadBanner />
 
-          <Toaster />
-          <Analytics />
-          <SpeedInsights />
+            <Toaster />
+            <Analytics />
+            <SpeedInsights />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

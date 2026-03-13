@@ -131,11 +131,9 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 z-50">
-        <ThemeToggle />
-      </div>
+      {/* ThemeToggle and Back buttons removed - handled by global Navbar */}
 
-      <div className="min-h-screen bg-background flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] selection:bg-primary/20 selection:text-primary relative overflow-hidden">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4 selection:bg-primary/20 selection:text-primary relative overflow-hidden">
         {/* Decorative Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] mix-blend-screen opacity-50"></div>
@@ -143,14 +141,6 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-md relative z-10">
-        <Button 
-          variant="ghost" 
-          onClick={() => router.push('/')} 
-          className="mb-8 hover:bg-white/5 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
-        </Button>
 
         <Card className="glass-card border-white/5 shadow-2xl">
           <CardHeader className="space-y-1 text-center pb-8">
