@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { TrendingUp, X, Menu, Settings, Home, User, LogOut, Globe } from 'lucide-react'
+import { TrendingUp, X, Menu, Settings, Home, User, LogOut, Globe, Layers } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/sub-components/theme-toggle'
 
@@ -76,6 +76,15 @@ export function Sidebar({ open, setOpen }) {
         >
           <Globe className="h-5 w-5 flex-shrink-0" />
           {open && <span className="ml-3 truncate">Community</span>}
+        </Button>
+        <Button 
+          variant="ghost" 
+          className={`w-full ${open ? 'justify-start px-4' : 'justify-center px-2'} hover:bg-white/5 data-[active=true]:bg-primary/10 data-[active=true]:text-primary`} 
+          onClick={() => router.push('/resource-hub')}
+          data-active={pathname.startsWith('/resource-hub')}
+        >
+          <Layers className="h-5 w-5 flex-shrink-0" />
+          {open && <span className="ml-3 truncate">Resource Hub</span>}
         </Button>
         <Button 
           variant="ghost" 

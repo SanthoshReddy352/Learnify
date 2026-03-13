@@ -5,13 +5,12 @@ import { usePathname } from 'next/navigation'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { Header } from '@/components/dashboard/header'
 
-export default function DashboardLayout({ children }) {
+export default function ResourceHubLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
 
   // Collapse sidebar on route change (mobile only)
   useEffect(() => {
-    // Check initially on path change
     if (window.innerWidth < 768) {
         setSidebarOpen(false)
     }

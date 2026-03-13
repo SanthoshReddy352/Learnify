@@ -112,6 +112,13 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <a href="#features" className="text-sm font-medium text-zinc-950 dark:text-muted-foreground hover:text-primary transition-all hover:scale-105">Features</a>
             <a href="#how-it-works" className="text-sm font-medium text-zinc-950 dark:text-muted-foreground hover:text-primary transition-all hover:scale-105">Methodology</a>
+            <Button 
+                variant="ghost" 
+                onClick={() => router.push('/resource-hub')}
+                className="text-sm font-medium text-zinc-950 dark:text-muted-foreground hover:text-primary transition-all hover:scale-105 p-0 h-auto bg-transparent hover:bg-transparent"
+            >
+                Resource Hub
+            </Button>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             {user ? (
