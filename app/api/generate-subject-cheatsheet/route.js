@@ -70,8 +70,15 @@ export async function POST(request) {
     2. Extract and highlight the most critical definitions, equations, and formulas.
     3. Include Mermaid diagrams (flowcharts, sequence charts) that summarize complex flows. Extract or create them based on the text.
     4. Keep it concise. Use bullet points, bolding, and tables where appropriate.
-    5. Format strictly in Markdown. Use markdown tables, code blocks, and math blocks/inline ($ and $$) where needed.
+    5. Format strictly in Markdown. Use markdown tables and code blocks where needed.
     6. Ensure the cheat sheet is highly visual and easy to scan.
+    7. CRITICAL - MATH FORMATTING: NEVER use LaTeX dollar signs ($, $$). Write ALL math using clean Unicode:
+       - Superscripts: ², ³, ⁴, ⁿ (e.g., E = mc², x²)
+       - Subscripts: ₀, ₁, ₂, ₃, ₙ (e.g., H₂O, CO₂)
+       - Greek: α, β, γ, δ, θ, π, σ, Σ, Δ, λ, μ, Ω
+       - Operators: ×, ÷, ±, ≠, ≤, ≥, ≈, √, ∞, →, ⇒, ∈, ∪, ∩
+       - Fractions: write as a/b, NOT LaTeX \\frac
+       - Make key equations **bold**.
 
     CONTENT TO SUMMARIZE:
     ${aggregatedContent}

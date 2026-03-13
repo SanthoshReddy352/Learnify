@@ -200,7 +200,20 @@ export async function POST(request) {
        - Use bullet points with proper spacing
        
     3. Real Life Example: Provide a concrete, detailed, and relatable real-world analogy or example.
-    4. Code/Math/Chemistry: Use Markdown code blocks (\`\`\`) for computer code. Use LaTeX ($ or $$) for ALL mathematical formulas and chemical equations (e.g., $E=mc^2$, $\\text{H}_2\\text{O}$). Do NOT use code blocks for math or chemistry.
+    4. Code/Math/Chemistry:
+       - Use Markdown code blocks (\`\`\`) for computer code ONLY (Python, JavaScript, etc.).
+       - NEVER use LaTeX dollar signs ($, $$) for math or chemistry. They are BANNED.
+       - Write ALL math using clean Unicode characters instead:
+         * Superscripts: use ², ³, ⁴, ⁿ, ˣ (e.g., E = mc², x², aⁿ)
+         * Subscripts: use ₀, ₁, ₂, ₃, ₙ (e.g., H₂O, CO₂, xₙ)
+         * Greek: use α, β, γ, δ, θ, π, σ, Σ, Δ, λ, μ, Ω, φ, ψ
+         * Operators: use ×, ÷, ±, ≠, ≤, ≥, ≈, √, ∞, ∫, ∑, ∏, ∂, ∇, →, ⟶, ⇒, ∈, ∉, ⊂, ∪, ∩
+         * Fractions: write as a/b or (a + b) / c, NOT as LaTeX \\frac{}{}
+         * Examples: "The quadratic formula is x = (-b ± √(b² - 4ac)) / 2a"
+         * Examples: "F = G × (m₁ × m₂) / r²"
+         * Examples: "∑ᵢ₌₁ⁿ aᵢ" or "Σ(i=1 to n) aᵢ"
+       - For chemical equations: H₂O, NaCl, CO₂, CH₃COOH, Fe₂O₃
+       - Make equations **bold** for emphasis when they are standalone.
     5. Visuals - CONTEXTUAL INTEGRATION IS CRITICAL:
        - Every visual MUST be directly relevant to the immediately surrounding text
        - ALWAYS introduce the visual with a sentence like "The following diagram illustrates..." or "As shown in the image below..."

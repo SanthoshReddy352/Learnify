@@ -14,8 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Plus, ArrowLeft, Network, BookOpen, Settings, Trash2, Sparkles, Play, RotateCw, Home, Pencil, Share2, Copy, Check, Globe, Lock, Menu, MoreVertical } from 'lucide-react'
+import { Plus, ArrowLeft, Network, BookOpen, Settings, Trash2, Sparkles, Play, RotateCw, Home, Pencil, Share2, Copy, Check, Globe, Lock, Menu, MoreVertical, Download } from 'lucide-react'
 import { toast } from 'sonner'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import React from 'react'
+import MarkdownComponents from '@/components/sub-components/MarkdownComponents'
+import { sanitizeLatex } from '@/lib/latexToUnicode'
 import GraphVisualizer from '@/components/GraphVisualizer'
 import RecommendationWidget from '@/components/RecommendationWidget'
 import WeeklyStats from '@/components/WeeklyStats'
@@ -76,6 +81,87 @@ export default function SubjectPage() {
   const [updatedSubject, setUpdatedSubject] = useState({ title: '', description: '' })
   
   const [isCopied, setIsCopied] = useState(false)
+
+  const handleDownloadNotes = () => {
+    const topicsWithNotes = topics.filter(t => t.user_notes && t.user_notes.trim().length > 0)
+    if (topicsWithNotes.length === 0) {
+      toast.error('No notes available to download.')
+      return
+    }
+
+    let content = `# Notes & Reminders: ${subject.title}\n\n`
+    topicsWithNotes.forEach(t => {
+      content += `---\n\n## ${t.title}\n\n${t.user_notes}\n\n`
+    })
+
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${subject.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_notes.md`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    
+    toast.success('Notes downloaded!')
+  }
+
+  const [isGeneratingCheatSheet, setIsGeneratingCheatSheet] = useState(false)
+
+  const handleGenerateCheatSheet = async () => {
+    setIsGeneratingCheatSheet(true)
+    const tid = toast.loading('Synthesizing Master Cheat Sheet (This may take a minute)...')
+    try {
+      const response = await fetch('/api/generate-subject-cheatsheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectId })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to generate cheat sheet')
+      }
+
+      toast.success('Cheat Sheet Generated!', { id: tid })
+      // Update local subject state
+      setSubject(prev => ({ ...prev, cheat_sheet: result.cheat_sheet }))
+    } catch (error) {
+      console.error('Cheat sheet generation error:', error)
+      toast.error('Failed to generate cheat sheet', { id: tid })
+    } finally {
+      setIsGeneratingCheatSheet(false)
+    }
+  }
+
+  const handleDownloadCheatSheetPDF = async () => {
+    const element = document.getElementById('cheat-sheet-content');
+    if (!element) {
+      toast.error('Content not ready for PDF generation.');
+      return;
+    }
+    
+    toast.loading('Preparing PDF...', { id: 'pdf-toast' });
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     `${subject.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_cheatsheet.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, logging: false },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+      toast.success('PDF downloaded successfully!', { id: 'pdf-toast' });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF.', { id: 'pdf-toast' });
+    }
+  }
 
   /* ... */
 
@@ -257,7 +343,7 @@ export default function SubjectPage() {
     // Optimization: Select only necessary fields for the list view and recommendations
     const { data, error } = await supabase
       .from('topics')
-      .select('id, title, description, status, estimated_minutes, difficulty, next_review_at, subject_id, created_at, repetition_count, interval_days, difficulty_factor')
+      .select('id, title, description, status, estimated_minutes, difficulty, next_review_at, subject_id, created_at, repetition_count, interval_days, difficulty_factor, user_notes')
       .eq('subject_id', subjectId)
       .order('created_at', { ascending: true })
 
@@ -744,6 +830,8 @@ export default function SubjectPage() {
               <TabsTrigger value="overview" className="data-[state=active]:bg-background/50">Overview</TabsTrigger>
               <TabsTrigger value="graph" className="data-[state=active]:bg-background/50">Knowledge Graph</TabsTrigger>
               <TabsTrigger value="topics" className="data-[state=active]:bg-background/50">All Topics</TabsTrigger>
+              <TabsTrigger value="notes" className="data-[state=active]:bg-background/50 flex items-center gap-1.5"><Pencil className="h-3 w-3" />Notes</TabsTrigger>
+              <TabsTrigger value="cheatsheet" className="data-[state=active]:bg-background/50 flex items-center gap-1.5"><Sparkles className="h-3 w-3" />Cheat Sheet</TabsTrigger>
             </TabsList>
           </div>
 
@@ -979,6 +1067,194 @@ export default function SubjectPage() {
                 )
               })
             )}
+          </TabsContent>
+
+          {/* Notes & Reminders Tab */}
+          <TabsContent value="notes" className="flex-1 overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] container mx-auto">
+             <div className="flex flex-col gap-6 max-w-4xl mx-auto h-full">
+                <div className="flex items-center justify-between mb-2">
+                   <div>
+                     <h2 className="text-2xl font-bold tracking-tight">Compiled Notes</h2>
+                     <p className="text-muted-foreground text-sm">All the sticky notes you've taken across this subject's topics.</p>
+                   </div>
+                   <Button onClick={handleDownloadNotes} variant="outline" className="glass hover:bg-white/5">
+                     <Download className="mr-2 h-4 w-4" /> Download .md
+                   </Button>
+                </div>
+
+                <div className="flex-1 space-y-8">
+                   {topics.filter(t => t.user_notes && t.user_notes.trim().length > 0).length === 0 ? (
+                      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-border/50 rounded-xl bg-muted/10 h-64">
+                         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                            <Pencil className="h-8 w-8 text-primary/50" />
+                         </div>
+                         <h3 className="text-xl font-semibold mb-2">No Notes Yet</h3>
+                         <p className="text-muted-foreground max-w-sm">
+                            Open a topic and click the sticky note icon to jot down your thoughts. They'll appear here!
+                         </p>
+                      </div>
+                   ) : (
+                     <div className="space-y-6">
+                        {topics
+                          .filter(t => t.user_notes && t.user_notes.trim().length > 0)
+                          .map((topic, index) => {
+                            // Assign an alternating visual color theme block based on index
+                            const themeColors = [
+                               { wrapper: 'border-blue-500/30 bg-blue-500/5', title: 'text-blue-500', marker: 'bg-blue-500' },
+                               { wrapper: 'border-emerald-500/30 bg-emerald-500/5', title: 'text-emerald-500', marker: 'bg-emerald-500' },
+                               { wrapper: 'border-purple-500/30 bg-purple-500/5', title: 'text-purple-500', marker: 'bg-purple-500' },
+                               { wrapper: 'border-amber-500/30 bg-amber-500/5', title: 'text-amber-500', marker: 'bg-amber-500' },
+                               { wrapper: 'border-rose-500/30 bg-rose-500/5', title: 'text-rose-500', marker: 'bg-rose-500' }
+                            ];
+                            const theme = themeColors[index % themeColors.length];
+
+                            return (
+                               <div key={topic.id} className={`p-6 rounded-xl border ${theme.wrapper} relative overflow-hidden group`}>
+                                  <div className={`absolute top-0 left-0 w-1 h-full ${theme.marker}`} />
+                                  
+                                  <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
+                                    <h3 className={`font-bold text-lg flex items-center gap-2 ${theme.title}`}>
+                                       {topic.title}
+                                    </h3>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="h-8 text-xs hover:bg-white/10"
+                                      onClick={() => router.push(`/learn/${topic.id}`)}
+                                    >
+                                      Go to Topic <ArrowLeft className="w-3 h-3 ml-2 rotate-180" />
+                                    </Button>
+                                  </div>
+
+                                  <div className="prose dark:prose-invert prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-headings:text-slate-800 dark:prose-headings:text-slate-100 max-w-none text-sm leading-relaxed">
+                                      <ReactMarkdown 
+                                           remarkPlugins={[remarkGfm]}
+                                           components={{
+                                              blockquote: ({node, ...props}) => {
+                                                let color = 'blue';
+                                                let found = false;
+                                                
+                                                const processChildren = (children) => {
+                                                  return React.Children.map(children, child => {
+                                                    if (typeof child === 'string') {
+                                                      if (!found) {
+                                                        const match = child.match(/^\[(blue|green|purple|amber|rose)\]\s*/);
+                                                        if (match) {
+                                                          color = match[1];
+                                                          found = true;
+                                                          return child.replace(match[0], '');
+                                                        }
+                                                      }
+                                                      return child;
+                                                    }
+                                                    if (React.isValidElement(child) && child.props && child.props.children) {
+                                                      return React.cloneElement(child, {
+                                                        children: processChildren(child.props.children)
+                                                      });
+                                                    }
+                                                    return child;
+                                                  });
+                                                };
+                                                
+                                                const modifiedChildren = processChildren(props.children);
+
+                                                const hlThemes = {
+                                                  blue: { border: 'border-blue-500', shadow: 'from-blue-500/10', shine: 'via-blue-400/10' },
+                                                  green: { border: 'border-emerald-500', shadow: 'from-emerald-500/10', shine: 'via-emerald-400/10' },
+                                                  purple: { border: 'border-purple-500', shadow: 'from-purple-500/10', shine: 'via-purple-400/10' },
+                                                  amber: { border: 'border-amber-500', shadow: 'from-amber-500/10', shine: 'via-amber-400/10' },
+                                                  rose: { border: 'border-rose-500', shadow: 'from-rose-500/10', shine: 'via-rose-400/10' }
+                                                };
+                                                const hlTheme = hlThemes[color] || hlThemes.blue;
+
+                                                return (
+                                                  <blockquote 
+                                                    className={`not-prose my-3 pl-4 py-2 pr-4 rounded-r block border-l-4 ${hlTheme.border} bg-gradient-to-r ${hlTheme.shadow} to-transparent italic text-slate-700 dark:text-slate-300 shadow-sm relative overflow-hidden`} 
+                                                  >
+                                                     <div className={`absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent ${hlTheme.shine} to-transparent animate-[shimmer_3s_infinite] opacity-50`} />
+                                                     <div className="relative z-10">
+                                                       {modifiedChildren}
+                                                     </div>
+                                                  </blockquote>
+                                                )
+                                              },
+                                              input: ({node, ...props}) => (
+                                                <input {...props} className="mr-2 accent-primary" />
+                                              )
+                                           }}
+                                        >
+                                            {topic.user_notes}
+                                        </ReactMarkdown>
+                                  </div>
+                               </div>
+                            )
+                          })
+                        }
+                     </div>
+                   )}
+                </div>
+             </div>
+          </TabsContent>
+
+          {/* Cheat Sheet Tab */}
+          <TabsContent value="cheatsheet" className="flex-1 overflow-y-auto p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] container mx-auto">
+            <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                 <div>
+                   <h2 className="text-2xl font-bold tracking-tight">AI Cheat Sheet</h2>
+                   <p className="text-muted-foreground text-sm">A condensed, high-yield study guide summarizing all topics.</p>
+                 </div>
+                 {subject?.cheat_sheet && (
+                   <div className="flex gap-2">
+                     <Button onClick={handleDownloadCheatSheetPDF} variant="outline" className="glass hover:bg-white/5">
+                       <Download className="mr-2 h-4 w-4" />
+                       Download PDF
+                     </Button>
+                     <Button onClick={handleGenerateCheatSheet} disabled={isGeneratingCheatSheet} variant="outline" className="glass hover:bg-white/5">
+                       {isGeneratingCheatSheet ? <RotateCw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                       Regenerate
+                     </Button>
+                   </div>
+                 )}
+              </div>
+
+              {!subject?.cheat_sheet ? (
+                 <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-border/50 rounded-xl bg-muted/10 h-64">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                       <Sparkles className="h-8 w-8 text-primary/50" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">No Cheat Sheet Generated</h3>
+                    <p className="text-muted-foreground max-w-sm mb-6">
+                       Let the AI analyze all topics in this subject and synthesize a dense 2-page master study guide containing core definitions, equations, and diagrams.
+                    </p>
+                    <Button onClick={handleGenerateCheatSheet} disabled={isGeneratingCheatSheet || topics.length === 0} className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
+                       {isGeneratingCheatSheet ? (
+                         <>
+                           <RotateCw className="mr-2 h-5 w-5 animate-spin" /> Synthesizing...
+                         </>
+                       ) : (
+                         <>
+                           <Sparkles className="mr-2 h-5 w-5" /> Generate Cheat Sheet
+                         </>
+                       )}
+                    </Button>
+                    {topics.length === 0 && (
+                      <p className="text-xs text-muted-foreground mt-4">You must add topics before generating a cheat sheet.</p>
+                    )}
+                 </div>
+              ) : (
+                <div className="p-8 md:p-10 rounded-xl border border-white/10 bg-card shadow-xl relative group mb-8">
+                  <div id="cheat-sheet-content" className="prose dark:prose-invert prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-headings:text-slate-800 dark:prose-headings:text-slate-100 max-w-none text-base md:text-lg leading-relaxed marker:text-primary pb-8">
+                      <ReactMarkdown 
+                           remarkPlugins={[remarkGfm]}
+                           components={MarkdownComponents}
+                        >
+                            {sanitizeLatex(subject.cheat_sheet)}
+                        </ReactMarkdown>
+                  </div>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
@@ -1323,7 +1599,7 @@ export default function SubjectPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Topic?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete the topic <span className="font-semibold text-foreground">&quot;{topicToDelete?.title}&quot;</span>? 
+              Are you sure you want to permanently delete the topic <span className="font-semibold text-foreground">"{topicToDelete?.title}"</span>? 
               This will remove all associated content and dependencies. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

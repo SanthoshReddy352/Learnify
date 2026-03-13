@@ -12,9 +12,7 @@ import { startLearningSession, completeLearning, logStudyActivity } from '@/lib/
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkBreaks from 'remark-breaks'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
-import 'katex/dist/katex.min.css'
+import { sanitizeLatex } from '@/lib/latexToUnicode'
 import { ThemeToggle } from '@/components/sub-components/theme-toggle'
 
 
@@ -460,11 +458,10 @@ export default function LearnPage() {
                 </h3>
                 <div className="markdown-content prose dark:prose-invert prose-p:text-muted-foreground prose-headings:text-foreground prose-strong:text-primary prose-code:text-primary max-w-none break-words">
                   <ReactMarkdown 
-                    remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
                     components={MarkdownComponents}
                   >
-                    {topic.content}
+                    {sanitizeLatex(topic.content)}
                   </ReactMarkdown>
                 </div>
               </div>

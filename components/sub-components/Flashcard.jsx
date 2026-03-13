@@ -5,9 +5,7 @@ import { Sparkles } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkBreaks from 'remark-breaks'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
-import 'katex/dist/katex.min.css'
+import { sanitizeLatex } from '@/lib/latexToUnicode'
 import { cleanCodeContent } from './CodeBlock'
 
 const MiniMarkdownComponents = {
@@ -62,11 +60,10 @@ const Flashcard = ({ front, back, isFlipped, onFlip }) => {
             <CardContent className="text-center p-0 h-full overflow-y-auto flex flex-col justify-center w-full pt-6">
               <div className="w-full text-left sm:text-center">
                 <ReactMarkdown 
-                    remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
                     components={MiniMarkdownComponents}
                 >
-                    {back}
+                    {sanitizeLatex(back)}
                 </ReactMarkdown>
               </div>
             </CardContent>
