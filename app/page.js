@@ -9,6 +9,7 @@ import { motion, useScroll, useTransform, useSpring, useMotionValue, useMotionTe
 import { GoogleLogo } from '@/components/ui/google-logo'
 import { ThemeToggle } from '@/components/sub-components/theme-toggle'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export default function LandingPage() {
   const router = useRouter()
@@ -94,47 +95,7 @@ export default function LandingPage() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/30 rounded-full blur-[120px] mix-blend-multiply dark:mix-blend-screen opacity-50 animate-blob animation-delay-2000"></div>
       </div>
 
-      {/* Top Navigation - Floating Glass */}
-      <motion.nav 
-        initial={{ y: -100, x: "-50%", opacity: 0 }}
-        animate={{ y: 0, x: "-50%", opacity: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="fixed top-[calc(1.5rem+env(safe-area-inset-top))] left-1/2 w-[90%] max-w-5xl z-50 rounded-full"
-      >
-        <div className="glass rounded-full px-6 py-3 flex justify-between items-center shadow-2xl transition-all hover:bg-background/80 relative">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-            router.push('/')
-          }}>
-            <Image src="/icons/icon-192x192.png" alt="Learnify Logo" width={32} height={32} className="h-8 w-8 rounded-full" />
-            <span className="text-lg font-bold tracking-tight text-foreground hidden sm:inline">Learnify</span>
-          </div>
-          <div className="hidden md:flex items-center gap-8 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <a href="#features" className="text-sm font-medium text-zinc-950 dark:text-muted-foreground hover:text-primary transition-all hover:scale-105">Features</a>
-            <a href="#how-it-works" className="text-sm font-medium text-zinc-950 dark:text-muted-foreground hover:text-primary transition-all hover:scale-105">Methodology</a>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            {user ? (
-               <div className="flex items-center gap-4">
-                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-white/5" />
-                 <Button size="sm" onClick={() => router.push('/dashboard')} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6 shadow-lg shadow-primary/25 transition-all hover:scale-105">
-                   Open Dashboard
-                 </Button>
-               </div>
-            ) : (
-              <>
-                 <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-white/5" />
-                <Button variant="ghost" size="sm" onClick={() => router.push('/login')} className="text-muted-foreground hover:text-foreground hover:bg-white/5 rounded-full">
-                  Sign In
-                </Button>
-                <Button size="sm" onClick={() => router.push('/signup')} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6 shadow-lg shadow-primary/25 transition-all hover:scale-105">
-                  Get Started
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </motion.nav>
+      {/* Top Navigation removed - handled by global Navbar */}
 
       {/* Hero Section */}
       <section className="relative pt-48 pb-32 px-6">
