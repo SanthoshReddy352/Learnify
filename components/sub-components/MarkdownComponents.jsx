@@ -61,10 +61,10 @@ const MarkdownComponents = {
     <h1 className="text-2xl md:text-3xl font-bold mt-6 md:mt-10 mb-4 md:mb-6 bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent inline-block pb-2 border-b border-border w-full break-words" {...props} />
   ),
   h2: ({ node, ...props }) => (
-    <h2 className="text-lg md:text-2xl font-bold mt-6 md:mt-8 mb-3 md:mb-4 text-foreground flex items-center gap-2 group break-words" {...props}>
+    <div className="flex items-center gap-2 mt-6 md:mt-8 mb-3 md:mb-4 group break-words">
       <div className="h-6 w-1 md:h-8 md:w-1 bg-primary rounded-full shrink-0" />
-      {props.children}
-    </h2>
+      <h2 className="text-lg md:text-2xl font-bold text-foreground m-0 p-0" {...props} />
+    </div>
   ),
   h3: ({ node, ...props }) => (
     <h3 className="text-lg md:text-xl font-semibold mt-5 md:mt-6 mb-2 md:mb-3 text-foreground/90 pl-3 md:pl-4 border-l-2 border-primary/30 break-words" {...props} />

@@ -6,6 +6,49 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { createPortal } from 'react-dom'
 
+const extractMarkdown = (node) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+    return '';
+  }
+
+  const el = node;
+
+  // Check custom data attributes first
+  if (el.hasAttribute && el.hasAttribute('data-mermaid-code')) {
+    return `\n\`\`\`mermaid\n${decodeURIComponent(el.getAttribute('data-mermaid-code'))}\n\`\`\`\n`;
+  }
+  
+  if (el.hasAttribute && el.hasAttribute('data-code')) {
+    const lang = el.getAttribute('data-language') || '';
+    return `\n\`\`\`${lang}\n${decodeURIComponent(el.getAttribute('data-code'))}\n\`\`\`\n`;
+  }
+
+  if (el.tagName === 'IMG') {
+    // Only capture actual content images, skip UI icons if they have no alt or don't look like content
+    if (el.src && (el.alt || el.className.includes('object-'))) {
+        return `![${el.alt || 'Image'}](${el.src})`;
+    }
+    return '';
+  }
+
+  let text = '';
+  for (const child of Array.from(el.childNodes)) {
+    text += extractMarkdown(child);
+  }
+
+  if (el.tagName === 'P' || el.tagName === 'DIV' || /^[H][1-6]$/.test(el.tagName || '')) {
+    return `\n${text}\n`;
+  }
+  if (el.tagName === 'LI') {
+    return `\n- ${text}`;
+  }
+
+  return text;
+};
+
 export default function SelectionHighlighter() {
   const [selectionStyle, setSelectionStyle] = useState(null)
   const [mounted, setMounted] = useState(false)
@@ -83,14 +126,24 @@ export default function SelectionHighlighter() {
         <button
           key={color.id}
           onClick={() => {
-            const text = window.getSelection().toString()
-            if (text) {
-              window.dispatchEvent(new CustomEvent('add-highlight-to-notes', { 
-                detail: { text, color: color.id } 
-              }))
-              window.getSelection().removeAllRanges()
-              setSelectionStyle(null)
-              toast.success(`Added ${color.id} highlight to notes!`)
+            const selection = window.getSelection()
+            if (selection && !selection.isCollapsed) {
+              const fragment = selection.getRangeAt(0).cloneContents()
+              let text = extractMarkdown(fragment).trim()
+              
+              // Fallback to text string if parser missed
+              if (!text) {
+                 text = selection.toString().trim()
+              }
+
+              if (text) {
+                window.dispatchEvent(new CustomEvent('add-highlight-to-notes', { 
+                  detail: { text, color: color.id } 
+                }))
+                selection.removeAllRanges()
+                setSelectionStyle(null)
+                toast.success(`Added ${color.id} highlight!`)
+              }
             }
           }}
           className={`w-5 h-5 rounded-full border shadow-sm transition-transform hover:scale-110 active:scale-95 ${color.class}`}
