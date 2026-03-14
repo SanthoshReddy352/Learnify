@@ -11,7 +11,15 @@ export async function POST(_request, { params }) {
 
     return NextResponse.json(result)
   } catch (error) {
-    const status = error.message === 'Unauthorized' ? 401 : 400
-    return NextResponse.json({ error: error.message }, { status })
+    const status = error.message === 'Unauthorized'
+      ? 401
+      : error.code === 'PROFILE_INCOMPLETE'
+        ? 409
+        : 400
+    return NextResponse.json({
+      error: error.message,
+      code: error.code,
+      missingFields: error.missingFields || []
+    }, { status })
   }
 }

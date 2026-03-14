@@ -9,7 +9,10 @@ export async function GET() {
     const user = await getCurrentUser(supabase)
 
     await claimPendingInvitesForUser(supabase, user)
-    const invitations = await listPendingInvitations(supabase, normalizeEmail(user.email))
+    const invitations = await listPendingInvitations(supabase, {
+      email: normalizeEmail(user.email),
+      userId: user.id
+    })
 
     return NextResponse.json({ invitations })
   } catch (error) {

@@ -12,7 +12,10 @@ export async function GET() {
 
     const [classrooms, invitations] = await Promise.all([
       listStudentClassrooms(supabase, user.id),
-      listPendingInvitations(supabase, normalizeEmail(user.email))
+      listPendingInvitations(supabase, {
+        email: normalizeEmail(user.email),
+        userId: user.id
+      })
     ])
 
     return NextResponse.json({

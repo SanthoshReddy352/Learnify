@@ -27,7 +27,7 @@ export default function Dashboard() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [selectedSubject, setSelectedSubject] = useState(null)
-  const [newSubject, setNewSubject] = useState({ title: '', description: '' })
+  const [newSubject, setNewSubject] = useState({ title: '', description: '', syllabus: '' })
 
   const [analytics, setAnalytics] = useState({ totalMinutes: 0, subjectStats: [], weeklyData: [], dueReviews: [] })
   const [hasProfile, setHasProfile] = useState(false)
@@ -43,10 +43,11 @@ export default function Dashboard() {
     if (selectedSubject && isEditOpen) {
       setNewSubject({
         title: selectedSubject.title,
-        description: selectedSubject.description || ''
+        description: selectedSubject.description || '',
+        syllabus: selectedSubject.syllabus || ''
       })
     } else if (!isEditOpen && !isCreateOpen) {
-      setNewSubject({ title: '', description: '' })
+      setNewSubject({ title: '', description: '', syllabus: '' })
     }
   }, [selectedSubject, isEditOpen, isCreateOpen])
 
@@ -142,6 +143,11 @@ export default function Dashboard() {
         return
     }
 
+    if (creationMode === 'ai' && (!newSubject.description.trim() || !newSubject.syllabus.trim())) {
+      toast.error('AI curriculum generation requires both a subject description and syllabus')
+      return
+    }
+
     setGenerating(true)
     const { data: subjectData, error } = await supabase
       .from('subjects')
@@ -149,6 +155,7 @@ export default function Dashboard() {
         user_id: user.id,
         title: newSubject.title,
         description: newSubject.description,
+        syllabus: newSubject.syllabus,
         is_public: false
       }])
       .select()
@@ -162,7 +169,7 @@ export default function Dashboard() {
       // If valid manual mode, we are done
       if (creationMode === 'manual') {
         toast.success('Subject created successfully!')
-        setNewSubject({ title: '', description: '' })
+        setNewSubject({ title: '', description: '', syllabus: '' })
         setIsCreateOpen(false)
         setGenerating(false)
         loadSubjects(user.id)
@@ -184,14 +191,14 @@ export default function Dashboard() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 subjectId: subjectData.id,
-                seedText: subjectData.description || subjectData.title, // Use desc or title as context
+                seedText: [subjectData.description, subjectData.syllabus].filter(Boolean).join('\n\n'),
                 difficulty: 3, // Default, will be refined by AI context
                 totalMinutes: 300 // Default
               })
           })
           
           toast.success('Subject created & curriculum generated!')
-          setNewSubject({ title: '', description: '' })
+          setNewSubject({ title: '', description: '', syllabus: '' })
           setIsCreateOpen(false)
           loadSubjects(user.id)
       } catch (genError) {
@@ -213,7 +220,8 @@ export default function Dashboard() {
       .from('subjects')
       .update({
         title: newSubject.title,
-        description: newSubject.description
+        description: newSubject.description,
+        syllabus: newSubject.syllabus
       })
       .eq('id', selectedSubject.id)
 
@@ -325,20 +333,30 @@ export default function Dashboard() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description (Optional)</Label>
+                    <Label htmlFor="description">{creationMode === 'ai' ? 'Subject Description *' : 'Description (Optional)'}</Label>
                     <Textarea
                       id="description"
-                      placeholder={creationMode === 'ai' ? "What will you learn? AI will use this to generate topics." : "Brief description of this subject."}
+                      placeholder={creationMode === 'ai' ? "What is this subject about? Define the scope, learner level, and objective." : "Brief description of this subject."}
                       value={newSubject.description}
                       onChange={(e) => setNewSubject({ ...newSubject, description: e.target.value })}
                       className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[100px]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="syllabus">{creationMode === 'ai' ? 'Syllabus *' : 'Syllabus (Optional)'}</Label>
+                    <Textarea
+                      id="syllabus"
+                      placeholder={creationMode === 'ai' ? 'List the modules, chapters, or syllabus points the AI must cover.' : 'Optional syllabus, module list, or outline.'}
+                      value={newSubject.syllabus}
+                      onChange={(e) => setNewSubject({ ...newSubject, syllabus: e.target.value })}
+                      className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[120px]"
                     />
                   </div>
 
                   {creationMode === 'ai' && (
                      <div className="rounded-md bg-primary/10 p-3 text-sm text-primary flex gap-2">
                         <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
-                        <p>We&apos;ll generate a personalized curriculum graph for you based on your profile and this description.</p>
+                        <p>We&apos;ll generate a personalized curriculum graph using your profile, the subject description, and the syllabus you provide.</p>
                      </div>
                   )}
 
@@ -546,6 +564,15 @@ export default function Dashboard() {
                   value={newSubject.description}
                   onChange={(e) => setNewSubject({ ...newSubject, description: e.target.value })}
                   className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[100px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-syllabus">Syllabus</Label>
+                <Textarea
+                  id="edit-syllabus"
+                  value={newSubject.syllabus}
+                  onChange={(e) => setNewSubject({ ...newSubject, syllabus: e.target.value })}
+                  className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[120px]"
                 />
               </div>
             </div>

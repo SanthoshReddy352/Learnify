@@ -120,7 +120,7 @@ export default function DoubtChat({
             {!isOpen && (
                 <Button
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 text-white z-[100] animate-in zoom-in slide-in-from-bottom-4 duration-300"
+                    className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 text-white z-[100] animate-in zoom-in slide-in-from-bottom-4 duration-300"
                 >
                     <MessageCircle className="h-7 w-7" />
                     <span className="sr-only">Ask AI</span>
@@ -133,7 +133,7 @@ export default function DoubtChat({
 
             {/* Chat Window */}
             {isOpen && (
-                <Card className="fixed bottom-6 right-6 md:bottom-8 md:right-8 w-[90vw] md:w-[400px] h-[60vh] max-h-[600px] z-[100] flex flex-col shadow-2xl border-primary/20 animate-in slide-in-from-bottom-10 fade-in duration-300 overflow-hidden glass">
+                <Card className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 w-[min(90vw,24rem)] md:w-[400px] h-[60vh] max-h-[600px] z-[100] flex flex-col shadow-2xl border-primary/20 animate-in slide-in-from-bottom-10 fade-in duration-300 overflow-hidden glass">
                     <CardHeader className="p-4 border-b border-white/10 bg-primary/5 flex flex-row items-center justify-between shrink-0">
                         <div className="flex items-center gap-2">
                             <div className="p-1.5 bg-primary/20 rounded-lg">

@@ -23,7 +23,10 @@ export async function POST(request, { params }) {
       teacherEmail: email,
       classroomName: detail.classroom.name,
       emails,
-      origin
+      origin,
+      existingActiveEmails: detail.members
+        .filter((member) => member.status === 'active' && member.email)
+        .map((member) => member.email)
     })
 
     return NextResponse.json(result)

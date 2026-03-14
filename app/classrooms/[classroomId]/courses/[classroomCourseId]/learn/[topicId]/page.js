@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,10 +45,6 @@ export default function ClassroomLearnPage() {
   }, [params.topicId])
 
   useEffect(() => {
-    loadTopicData()
-  }, [params.topicId])
-
-  useEffect(() => {
     return () => {
       if (!sessionLoggedRef.current && startTimeRef.current) {
         const duration = (Date.now() - startTimeRef.current) / 60000
@@ -87,6 +83,11 @@ export default function ClassroomLearnPage() {
   const totalSeconds = totalMinutes * 60
   const elapsedSeconds = (progress / 100) * totalSeconds
   const remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds)
+  const hasDetailedContent = Boolean(
+    topic?.content &&
+    topic.content !== topic.description &&
+    topic.content.length > 50
+  )
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60)
@@ -94,7 +95,7 @@ export default function ClassroomLearnPage() {
     return `${minutes}:${secs.toString().padStart(2, '0')}`
   }
 
-  const loadTopicData = async () => {
+  const loadTopicData = useCallback(async () => {
     try {
       const response = await fetch(`/api/classrooms/${params.classroomId}/courses/${params.classroomCourseId}`)
       const payload = await response.json()
@@ -119,6 +120,10 @@ export default function ClassroomLearnPage() {
       }
 
       setTopic(selectedTopic)
+      setFlashcards(Array.isArray(selectedTopic.flashcards) ? selectedTopic.flashcards : [])
+      setCurrentCard(0)
+      setIsFlipped(false)
+      setShowFlashcards(false)
       setCourse(payload.classroomCourse)
       setLoading(false)
 
@@ -136,7 +141,11 @@ export default function ClassroomLearnPage() {
       toast.error(error.message)
       router.push(courseHref)
     }
-  }
+  }, [courseHref, params.classroomCourseId, params.classroomId, params.topicId, router])
+
+  useEffect(() => {
+    loadTopicData()
+  }, [loadTopicData])
 
   const handleCompleteLearning = async () => {
     const durationMinutes = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 60000) : 0
@@ -245,6 +254,20 @@ export default function ClassroomLearnPage() {
     }
   }
 
+  const handleNextCard = useCallback(() => {
+    setIsFlipped(false)
+    setTimeout(() => {
+      setCurrentCard((previous) => (previous + 1) % flashcards.length)
+    }, 150)
+  }, [flashcards.length])
+
+  const handlePrevCard = useCallback(() => {
+    setIsFlipped(false)
+    setTimeout(() => {
+      setCurrentCard((previous) => (previous - 1 + flashcards.length) % flashcards.length)
+    }, 150)
+  }, [flashcards.length])
+
   useEffect(() => {
     if (!showFlashcards) {
       return
@@ -265,21 +288,7 @@ export default function ClassroomLearnPage() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showFlashcards, currentCard, flashcards.length])
-
-  const handleNextCard = () => {
-    setIsFlipped(false)
-    setTimeout(() => {
-      setCurrentCard((previous) => (previous + 1) % flashcards.length)
-    }, 150)
-  }
-
-  const handlePrevCard = () => {
-    setIsFlipped(false)
-    setTimeout(() => {
-      setCurrentCard((previous) => (previous - 1 + flashcards.length) % flashcards.length)
-    }, 150)
-  }
+  }, [handleNextCard, handlePrevCard, showFlashcards])
 
   const handleSaveNotes = async (_topicId, notes) => {
     const response = await fetch(`/api/classrooms/${params.classroomId}/courses/${params.classroomCourseId}/progress`, {
@@ -450,7 +459,7 @@ export default function ClassroomLearnPage() {
               </div>
             )}
 
-            {topic.content ? (
+            {hasDetailedContent ? (
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <h3 className="text-lg md:text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />
@@ -476,7 +485,7 @@ export default function ClassroomLearnPage() {
                 ) : (
                   <>
                     <Clock className="h-10 w-10 mb-4 opacity-50" />
-                    <p className="mb-4">Content is missing for this classroom topic.</p>
+                    <p className="mb-4">Detailed content has not been generated for this classroom topic yet.</p>
                     <Button onClick={handleRegenerateContent} variant="outline">
                       <Sparkles className="mr-2 h-4 w-4" />
                       Generate Detailed Content
@@ -503,7 +512,7 @@ export default function ClassroomLearnPage() {
         topicId={params.topicId}
         topicTitle={topic.title}
         subjectTitle={course.subjects?.title}
-        contentStatus={Boolean(topic.content && topic.content.length > 50)}
+        contentStatus={hasDetailedContent}
         classroomId={params.classroomId}
         classroomCourseId={params.classroomCourseId}
       />

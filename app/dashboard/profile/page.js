@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
@@ -14,6 +14,7 @@ import { ArrowLeft, User, BookOpen, Briefcase, GraduationCap } from 'lucide-reac
 
 export default function ProfilePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
@@ -25,41 +26,42 @@ export default function ProfilePage() {
     learning_schedule: ''
   })
   
-  const supabase = createClient()
+  const nextPath = searchParams.get('next')
 
   useEffect(() => {
-    fetchProfile()
-  }, [])
-
-  const fetchProfile = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/')
-        return
-      }
-
-      const response = await fetch('/api/user/profile')
-      if (response.ok) {
-        const data = await response.json()
-        if (data) {
-          setFormData({
-            full_name: data.full_name || '',
-            education_level: data.education_level || '',
-            occupation: data.occupation || '',
-            learning_goals: data.learning_goals || '',
-            preferred_learning_style: data.preferred_learning_style || '',
-            learning_schedule: data.learning_schedule || ''
-          })
+    const loadProfile = async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push('/')
+          return
         }
+
+        const response = await fetch('/api/user/profile')
+        if (response.ok) {
+          const data = await response.json()
+          if (data) {
+            setFormData({
+              full_name: data.full_name || '',
+              education_level: data.education_level || '',
+              occupation: data.occupation || '',
+              learning_goals: data.learning_goals || '',
+              preferred_learning_style: data.preferred_learning_style || '',
+              learning_schedule: data.learning_schedule || ''
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+        toast.error('Failed to load profile')
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      console.error('Error fetching profile:', error)
-      toast.error('Failed to load profile')
-    } finally {
-      setLoading(false)
     }
-  }
+
+    loadProfile()
+  }, [router])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -82,8 +84,10 @@ export default function ProfilePage() {
 
       if (response.ok) {
         toast.success('Profile updated successfully!')
-        // Optional: Redirect back to dashboard if they came from there
-        // router.push('/dashboard') 
+
+        if (nextPath) {
+          router.push(nextPath)
+        }
       } else {
         const errorData = await response.json()
         toast.error(errorData.error || 'Failed to update profile')

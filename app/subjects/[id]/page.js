@@ -123,7 +123,7 @@ export default function SubjectPage() {
   const [topicEditForm, setTopicEditForm] = useState({ title: '', description: '', content: '' })
   const [isEditSubjectOpen, setIsEditSubjectOpen] = useState(false)
   const [editMode, setEditMode] = useState('all') // 'all' | 'notes'
-  const [updatedSubject, setUpdatedSubject] = useState({ title: '', description: '' })
+  const [updatedSubject, setUpdatedSubject] = useState({ title: '', description: '', syllabus: '' })
   
   const [isCopied, setIsCopied] = useState(false)
 
@@ -236,7 +236,8 @@ export default function SubjectPage() {
       .from('subjects')
       .update({
         title: updatedSubject.title,
-        description: updatedSubject.description
+        description: updatedSubject.description,
+        syllabus: updatedSubject.syllabus
       })
       .eq('id', subjectId)
 
@@ -245,7 +246,7 @@ export default function SubjectPage() {
       toast.error('Failed to update subject')
     } else {
       toast.success('Subject updated successfully!')
-      setSubject({ ...subject, title: updatedSubject.title, description: updatedSubject.description })
+      setSubject({ ...subject, title: updatedSubject.title, description: updatedSubject.description, syllabus: updatedSubject.syllabus })
       setIsEditSubjectOpen(false)
     }
   }
@@ -526,6 +527,18 @@ export default function SubjectPage() {
   }
 
   const handleAIGenerate = async () => {
+    if (!String(subject?.description || '').trim() || !String(subject?.syllabus || '').trim()) {
+      toast.error('Add both a subject description and syllabus before using AI curriculum generation')
+      setUpdatedSubject({
+        title: subject?.title || '',
+        description: subject?.description || '',
+        syllabus: subject?.syllabus || ''
+      })
+      setEditMode('all')
+      setIsEditSubjectOpen(true)
+      return
+    }
+
     if (!aiConfig.seedText.trim()) {
       toast.error('Please enter a description or context')
       return
@@ -734,7 +747,7 @@ export default function SubjectPage() {
                     size="icon" 
                     className="h-6 w-6 text-muted-foreground hover:text-white shrink-0"
                     onClick={() => {
-                      setUpdatedSubject({ title: subject.title, description: subject.description || '' })
+                      setUpdatedSubject({ title: subject.title, description: subject.description || '', syllabus: subject.syllabus || '' })
                       setEditMode('all')
                       setIsEditSubjectOpen(true)
                     }}
@@ -978,19 +991,18 @@ export default function SubjectPage() {
                     totalMinutes={analytics.totalMinutes} 
                 />
 
-                {/* Description / Notes */}
-                {/* Description / Notes */}
+                {/* Subject description */}
                 {subject.description && (
                   <Card className="glass-card group relative">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-xl">Notes & Reminders</CardTitle>
+                        <CardTitle className="text-xl">Subject Description</CardTitle>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={() => {
-                            setUpdatedSubject({ title: subject.title, description: subject.description || '' })
+                            setUpdatedSubject({ title: subject.title, description: subject.description || '', syllabus: subject.syllabus || '' })
                             setEditMode('notes')
                             setIsEditSubjectOpen(true)
                           }}
@@ -1001,6 +1013,16 @@ export default function SubjectPage() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{subject.description}</p>
+                    </CardContent>
+                  </Card>
+                )}
+                {subject.syllabus && (
+                  <Card className="glass-card">
+                    <CardHeader>
+                      <CardTitle className="text-xl">Syllabus</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{subject.syllabus}</p>
                     </CardContent>
                   </Card>
                 )}
@@ -1121,7 +1143,7 @@ export default function SubjectPage() {
             )}
           </TabsContent>
 
-          {/* Notes & Reminders Tab */}
+          {/* Notes Tab */}
           <TabsContent value="notes" className="flex-1 overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] container mx-auto">
              <div className="flex flex-col gap-6 max-w-4xl mx-auto h-full">
                 <div className="flex items-center justify-between mb-2">
@@ -1316,7 +1338,7 @@ export default function SubjectPage() {
         <DialogContent className="bg-card border-white/10 sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Subject Details</DialogTitle>
-            <DialogDescription>Update your subject title and personal notes.</DialogDescription>
+            <DialogDescription>Update your subject title, AI context, and syllabus.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -1329,13 +1351,23 @@ export default function SubjectPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-subject-description">Notes & Reminders</Label>
+              <Label htmlFor="edit-subject-description">Subject Description</Label>
               <Textarea
                 id="edit-subject-description"
-                placeholder="Add notes, reminders, or a description..."
+                placeholder="Explain the scope, learner level, goals, and teacher guidance for this subject..."
                 value={updatedSubject.description}
                 onChange={(e) => setUpdatedSubject({ ...updatedSubject, description: e.target.value })}
                 className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[100px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-subject-syllabus">Syllabus</Label>
+              <Textarea
+                id="edit-subject-syllabus"
+                placeholder="List the chapters, modules, or syllabus points this course should cover..."
+                value={updatedSubject.syllabus}
+                onChange={(e) => setUpdatedSubject({ ...updatedSubject, syllabus: e.target.value })}
+                className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[140px]"
               />
             </div>
           </div>

@@ -31,6 +31,7 @@ export async function POST(request) {
       }, { status: 500 })
     }
     const existingTopic = topicAccess.topic
+    const effectiveSubject = topicAccess.subject
 
     if (existingTopic?.flashcards && Array.isArray(existingTopic.flashcards) && existingTopic.flashcards.length > 0) {
         console.log(`returning cached flashcards for topic: ${topicTitle || existingTopic.title}`)
@@ -52,11 +53,18 @@ export async function POST(request) {
     const effectiveTitle = topicTitle || existingTopic?.title || 'Untitled Topic'
     const effectiveDescription = topicDescription || existingTopic?.description || effectiveTitle
     const effectiveContent = content || existingTopic?.content || ''
+    const subjectDescription = String(effectiveSubject?.description || '').trim()
+    const subjectSyllabus = String(effectiveSubject?.syllabus || '').trim()
+    const subjectContext = [
+      subjectDescription ? `Teacher subject description: ${subjectDescription}` : '',
+      subjectSyllabus ? `Teacher syllabus: ${subjectSyllabus}` : ''
+    ].filter(Boolean).join('\n')
 
     const flashcardPrompt = `You are an expert tutor. Create 7 to 9 concise flashcards for the topic: "${effectiveTitle}".
     
     Context Description: ${effectiveDescription}
     Detailed Content (Reference): ${effectiveContent ? effectiveContent.slice(0, 3000) : 'Not provided'}
+    ${subjectContext ? `${subjectContext}\n` : ''}
 
     goals:
     1. Summarize key concepts into short Questions (Front) and Answers (Back).

@@ -139,9 +139,15 @@ export async function POST(request) {
 
     // === SUBJECT-BASED VISUAL REASONING ===
     const effectiveSubjectTitle = subjectTitle || effectiveSubject?.title || 'Untitled Subject'
+    const effectiveSubjectDescription = String(effectiveSubject?.description || '').trim()
+    const effectiveSubjectSyllabus = String(effectiveSubject?.syllabus || '').trim()
     const effectiveTopicTitle = topicTitle || effectiveTopic?.title || 'Untitled Topic'
     const effectiveTopicDescription = topicDescription || effectiveTopic?.description || effectiveTopicTitle
     const effectiveDifficulty = difficulty || effectiveTopic?.difficulty || 5
+    const curriculumContext = [
+      effectiveSubjectDescription ? `Teacher subject description:\n${effectiveSubjectDescription}` : '',
+      effectiveSubjectSyllabus ? `Teacher syllabus / scope:\n${effectiveSubjectSyllabus}` : ''
+    ].filter(Boolean).join('\n\n')
 
     const standardSubjects = ['physics', 'maths', 'mathematics', 'chemistry', 'biology', 'science']
     const lowerSubject = effectiveSubjectTitle.toLowerCase()
@@ -179,6 +185,7 @@ export async function POST(request) {
     Difficulty: ${effectiveDifficulty}/5.
     Target Audience: Student.
     ${personalizationContext}
+    ${curriculumContext ? `\nTEACHER COURSE CONTEXT:\n${curriculumContext}\n\nINSTRUCTION: Stay aligned with this teacher-authored course framing and syllabus while explaining the topic.\n` : ''}
 
     REQUIREMENTS:
     1. Detailed Explanation: Cover EVERY SINGLE aspect of the topic thoroughly. Do not skip small points.

@@ -7,7 +7,10 @@ export async function GET() {
   try {
     const supabase = await createClient()
     const roleInfo = await resolveCurrentRole(supabase)
-    const invitations = await listPendingInvitations(supabase, roleInfo.email)
+    const invitations = await listPendingInvitations(supabase, {
+      email: roleInfo.email,
+      userId: roleInfo.user.id
+    })
 
     return NextResponse.json({
       role: roleInfo.role,

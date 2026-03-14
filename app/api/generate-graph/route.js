@@ -31,6 +31,15 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Subject not found' }, { status: 404 })
     }
 
+    const subjectDescription = String(subject.description || '').trim()
+    const subjectSyllabus = String(subject.syllabus || '').trim()
+
+    if (!subjectDescription || !subjectSyllabus) {
+      return NextResponse.json({
+        error: 'AI curriculum generation requires both a subject description and syllabus'
+      }, { status: 400 })
+    }
+
     // === FETCH USER'S API KEY ===
     const { data: userData, error: userError } = await supabase
       .from('profiles')
@@ -128,14 +137,19 @@ JSON FORMAT (NO CODE BLOCKS):
 }
 
 Subject: ${subject.title}
-Context: ${seedText}`
+Subject Description: ${subjectDescription}
+Official Syllabus / Scope To Cover:
+${subjectSyllabus}
+
+Additional Teacher Instructions:
+${seedText || 'None'}`
 
 
     console.log('Generating curriculum with Gemini...')
     
     const responseData = await generateWithGemini([
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Generate curriculum for: ${seedText}` }
+      { role: 'user', content: `Generate curriculum for subject "${subject.title}" using the description and syllabus above. Cover the syllabus completely without drifting outside scope.` }
     ], {
       maxOutputTokens: 8000,
       apiKey: userApiKey
