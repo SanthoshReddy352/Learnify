@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import { ArrowLeft, User, BookOpen, Briefcase, GraduationCap } from 'lucide-react'
 
-export default function ProfilePage() {
+function ProfilePageFallback() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-pulse flex items-center gap-2 text-muted-foreground">
+        <User className="h-6 w-6 text-primary" />
+        <span className="text-lg font-medium">Loading Profile...</span>
+      </div>
+    </div>
+  )
+}
+
+function ProfilePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
@@ -105,14 +116,7 @@ export default function ProfilePage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse flex items-center gap-2 text-muted-foreground">
-          <User className="h-6 w-6 text-primary" />
-          <span className="text-lg font-medium">Loading Profile...</span>
-        </div>
-      </div>
-    )
+    return <ProfilePageFallback />
   }
 
   return (
@@ -279,5 +283,13 @@ export default function ProfilePage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<ProfilePageFallback />}>
+      <ProfilePageContent />
+    </Suspense>
   )
 }
