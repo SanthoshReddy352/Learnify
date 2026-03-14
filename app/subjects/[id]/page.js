@@ -826,12 +826,12 @@ export default function SubjectPage() {
       <div className="flex-1 overflow-hidden flex flex-col">
         <Tabs value={currentTab} onValueChange={handleTabChange} className="flex-1 flex flex-col overflow-hidden">
           <div className="container mx-auto px-6 pt-4 shrink-0">
-            <TabsList className="bg-white/5 border border-white/5 p-1 w-full sm:w-auto">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-background/50">Overview</TabsTrigger>
-              <TabsTrigger value="graph" className="data-[state=active]:bg-background/50">Knowledge Graph</TabsTrigger>
-              <TabsTrigger value="topics" className="data-[state=active]:bg-background/50">All Topics</TabsTrigger>
-              <TabsTrigger value="notes" className="data-[state=active]:bg-background/50 flex items-center gap-1.5"><Pencil className="h-3 w-3" />Notes</TabsTrigger>
-              <TabsTrigger value="cheatsheet" className="data-[state=active]:bg-background/50 flex items-center gap-1.5"><Sparkles className="h-3 w-3" />Cheat Sheet</TabsTrigger>
+            <TabsList className="bg-white/5 border border-white/5 p-1 w-full sm:w-auto flex overflow-x-auto no-scrollbar justify-start">
+              <TabsTrigger value="overview" className="data-[state=active]:bg-background/50 shrink-0">Overview</TabsTrigger>
+              <TabsTrigger value="graph" className="data-[state=active]:bg-background/50 shrink-0">Knowledge Graph</TabsTrigger>
+              <TabsTrigger value="topics" className="data-[state=active]:bg-background/50 shrink-0">All Topics</TabsTrigger>
+              <TabsTrigger value="notes" className="data-[state=active]:bg-background/50 flex items-center gap-1.5 shrink-0"><Pencil className="h-3 w-3" />Notes</TabsTrigger>
+              <TabsTrigger value="cheatsheet" className="data-[state=active]:bg-background/50 flex items-center gap-1.5 shrink-0"><Sparkles className="h-3 w-3" />Cheat Sheet</TabsTrigger>
             </TabsList>
           </div>
 

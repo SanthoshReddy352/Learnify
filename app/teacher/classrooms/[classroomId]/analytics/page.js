@@ -150,28 +150,30 @@ export default function TeacherClassroomAnalyticsPage() {
                 <CardDescription>Quick access to the overall health of each attached course.</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Course</TableHead>
-                      <TableHead>Students</TableHead>
-                      <TableHead>Completion</TableHead>
-                      <TableHead>Minutes</TableHead>
-                      <TableHead>Due</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {analytics.courses.map((course) => (
-                      <TableRow key={course.classroomCourseId}>
-                        <TableCell>{course.subjectTitle}</TableCell>
-                        <TableCell>{course.activeStudents}</TableCell>
-                        <TableCell>{course.averageCompletion}%</TableCell>
-                        <TableCell>{course.totalMinutes}</TableCell>
-                        <TableCell>{course.dueReviews}</TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Course</TableHead>
+                        <TableHead>Students</TableHead>
+                        <TableHead>Completion</TableHead>
+                        <TableHead>Minutes</TableHead>
+                        <TableHead>Due</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {analytics.courses.map((course) => (
+                        <TableRow key={course.classroomCourseId}>
+                          <TableCell>{course.subjectTitle}</TableCell>
+                          <TableCell>{course.activeStudents}</TableCell>
+                          <TableCell>{course.averageCompletion}%</TableCell>
+                          <TableCell>{course.totalMinutes}</TableCell>
+                          <TableCell>{course.dueReviews}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
 
@@ -181,33 +183,35 @@ export default function TeacherClassroomAnalyticsPage() {
                 <CardDescription>Review-heavy or low-quality topics to revisit as a teacher.</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Topic</TableHead>
-                      <TableHead>Completed</TableHead>
-                      <TableHead>Reviews</TableHead>
-                      <TableHead>Avg Quality</TableHead>
-                      <TableHead>Last Activity</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {analytics.topics.slice(0, 8).map((topic) => (
-                      <TableRow key={topic.topicId}>
-                        <TableCell>{topic.topicTitle}</TableCell>
-                        <TableCell>{topic.completionCount}</TableCell>
-                        <TableCell>{topic.reviewCount}</TableCell>
-                        <TableCell>{topic.averageQuality ?? 'N/A'}</TableCell>
-                        <TableCell>{formatIst(topic.lastActivity)}</TableCell>
-                      </TableRow>
-                    ))}
-                    {analytics.topics.length === 0 && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={5} className="text-muted-foreground">No topic activity yet.</TableCell>
+                        <TableHead>Topic</TableHead>
+                        <TableHead>Completed</TableHead>
+                        <TableHead>Reviews</TableHead>
+                        <TableHead>Avg Quality</TableHead>
+                        <TableHead>Last Activity</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {analytics.topics.slice(0, 8).map((topic) => (
+                        <TableRow key={topic.topicId}>
+                          <TableCell>{topic.topicTitle}</TableCell>
+                          <TableCell>{topic.completionCount}</TableCell>
+                          <TableCell>{topic.reviewCount}</TableCell>
+                          <TableCell>{topic.averageQuality ?? 'N/A'}</TableCell>
+                          <TableCell>{formatIst(topic.lastActivity)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {analytics.topics.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-muted-foreground">No topic activity yet.</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -218,30 +222,32 @@ export default function TeacherClassroomAnalyticsPage() {
               <CardDescription>Class-wide progress table for quick scanning.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Completion</TableHead>
-                    <TableHead>Mastered</TableHead>
-                    <TableHead>Reviews</TableHead>
-                    <TableHead>Minutes</TableHead>
-                    <TableHead>Last Activity</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {analytics.students.map((student) => (
-                    <TableRow key={student.studentUserId}>
-                      <TableCell>{student.name}</TableCell>
-                      <TableCell>{student.overall.completionPercentage}%</TableCell>
-                      <TableCell>{student.overall.masteredTopics}/{student.overall.totalTopics}</TableCell>
-                      <TableCell>{student.reviewCount}</TableCell>
-                      <TableCell>{student.totalMinutes}</TableCell>
-                      <TableCell>{formatIst(student.lastActivity)}</TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Completion</TableHead>
+                      <TableHead>Mastered</TableHead>
+                      <TableHead>Reviews</TableHead>
+                      <TableHead>Minutes</TableHead>
+                      <TableHead>Last Activity</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {analytics.students.map((student) => (
+                      <TableRow key={student.studentUserId}>
+                        <TableCell>{student.name}</TableCell>
+                        <TableCell>{student.overall.completionPercentage}%</TableCell>
+                        <TableCell>{student.overall.masteredTopics}/{student.overall.totalTopics}</TableCell>
+                        <TableCell>{student.reviewCount}</TableCell>
+                        <TableCell>{student.totalMinutes}</TableCell>
+                        <TableCell>{formatIst(student.lastActivity)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </div>
