@@ -13,10 +13,10 @@ export default function WeakTopicsWidget({ topics, getReviewHref }) {
   }
 
   return (
-    <Card className="glass-card border-orange-500/20 bg-orange-500/5">
+    <Card className="shadow-sm border-orange-200 dark:border-orange-500/20 bg-orange-50 dark:bg-orange-500/5">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-orange-500 uppercase tracking-widest flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-orange-600 dark:text-orange-500 uppercase tracking-widest flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" />
                 Focus Needed
             </CardTitle>
@@ -28,7 +28,7 @@ export default function WeakTopicsWidget({ topics, getReviewHref }) {
             <div className="min-w-0">
                 <h4 className="font-medium text-sm truncate">{topic.title}</h4>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                    <span className="flex items-center gap-1 text-orange-400">
+                    <span className="flex items-center gap-1 text-orange-500 dark:text-orange-400">
                         Average Score: {topic.averageRating}
                     </span>
                     <span>•</span>
@@ -38,7 +38,7 @@ export default function WeakTopicsWidget({ topics, getReviewHref }) {
             <Button 
                 size="sm" 
                 variant="outline"
-                className="shrink-0 h-8 border-orange-500/30 text-orange-500 hover:bg-orange-500/20 hover:text-orange-400"
+                className="shrink-0 h-8 border-orange-500/30 text-orange-600 dark:text-orange-500 hover:bg-orange-500/20 hover:text-orange-500"
                 onClick={() => router.push(getReviewHref ? getReviewHref(topic) : `/review/${topic.id}`)}
             >
                 <RotateCw className="mr-2 h-3.5 w-3.5" />

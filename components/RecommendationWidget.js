@@ -90,7 +90,7 @@ export default function RecommendationWidget({ topics, getTopicHref }) {
 
   if (recommendations.length === 0) {
     return (
-      <Card className="glass-card border-dashed border-white/10 bg-white/5">
+      <Card className="shadow-sm border-dashed bg-muted/30">
         <CardContent className="flex flex-col items-center justify-center py-10 text-center">
           <Brain className="h-10 w-10 text-muted-foreground mb-4 opacity-50" />
           <h3 className="text-lg font-semibold mb-2">All Caught Up!</h3>
@@ -103,7 +103,7 @@ export default function RecommendationWidget({ topics, getTopicHref }) {
   }
 
   return (
-    <Card className="glass-card border-primary/20 bg-gradient-to-br from-white/5 to-primary/5 relative overflow-hidden h-full">
+    <Card className="shadow-sm border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card relative overflow-hidden h-full">
       <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
         <Sparkles className="h-24 w-24 text-primary" />
       </div>
@@ -123,7 +123,7 @@ export default function RecommendationWidget({ topics, getTopicHref }) {
           return (
             <div 
               key={topic.id} 
-              className="group flex items-center justify-between p-3 rounded-xl bg-background/40 border border-white/5 hover:border-primary/30 transition-all cursor-pointer hover:bg-white/5"
+              className="group flex items-center justify-between p-3 rounded-xl bg-card border hover:border-primary/50 shadow-sm transition-all cursor-pointer hover:shadow-md"
               onClick={() => handleStart(topic, topic.type)}
             >
               <div className="flex items-center gap-3 overflow-hidden">
@@ -151,7 +151,7 @@ export default function RecommendationWidget({ topics, getTopicHref }) {
               <Button 
                 size="sm" 
                 variant={config.buttonVariant} 
-                className={`ml-2 shrink-0 h-8 w-8 p-0 rounded-full ${config.buttonClass}`}
+                className={`ml-2 shrink-0 h-8 w-8 p-0 rounded-full ${config.buttonClass} text-white shadow-sm`}
                 onClick={(e) => {
                   e.stopPropagation()
                   handleStart(topic, topic.type)

@@ -146,38 +146,42 @@ export default function ClassroomCoursePage() {
   }
 
   return (
-    <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-primary/15 via-background to-sky-500/10 px-6 py-7 shadow-[0_24px_80px_-48px_rgba(59,130,246,0.6)] md:px-8 md:py-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_28%)]" />
-        <div className="relative flex flex-col gap-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-3xl">
-              <Button variant="ghost" className="mb-4 -ml-2 w-fit text-muted-foreground" onClick={() => router.push(`/classrooms/${params.classroomId}`)}>
+    <div className="space-y-6 md:space-y-8 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+      {/* Course Header Section */}
+      <section className="relative overflow-hidden rounded-[24px] md:rounded-[32px] border bg-gradient-to-br from-primary/5 via-card to-sky-500/5 px-5 py-6 md:px-8 md:py-10 shadow-sm">
+        <div className="relative flex flex-col gap-8 md:gap-10">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl flex-1">
+              <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground hover:bg-muted" onClick={() => router.push(`/classrooms/${params.classroomId}`)}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Classroom
               </Button>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                <Network className="h-3.5 w-3.5 text-primary" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] md:text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-2">
+                <Network className="h-3 w-3 md:h-3.5 md:w-3.5" />
                 Course Dashboard
               </div>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">{data.classroomCourse.subjects?.title || 'Classroom course'}</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+              <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight text-foreground leading-tight lg:leading-[1.1]">{data.classroomCourse.subjects?.title || 'Classroom course'}</h1>
+              <p className="mt-3 md:mt-4 max-w-2xl text-sm md:text-base leading-relaxed text-muted-foreground">
                 {data.classroomCourse.subjects?.description || 'Track progress through the graph, follow recommendations, and open dedicated learn or review sessions.'}
               </p>
             </div>
 
             {suggestedTopic && (
-              <Card className="w-full max-w-sm border-white/10 bg-black/20 backdrop-blur-sm">
-                <CardHeader className="pb-3">
-                  <CardDescription>Suggested next step</CardDescription>
-                  <CardTitle className="text-xl">{suggestedTopic.title}</CardTitle>
+              <Card className="w-full lg:max-w-[340px] xl:max-w-sm rounded-[20px] bg-card shadow-sm shrink-0 overflow-hidden">
+                <CardHeader className="p-4 md:p-5 pb-2 md:pb-3">
+                  <CardDescription className="uppercase tracking-wider text-[10px] font-semibold text-primary/80">Suggested next step</CardDescription>
+                  <CardTitle className="text-lg md:text-xl line-clamp-1 mt-1 leading-tight">{suggestedTopic.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{getTopicMode(suggestedTopic) === 'review' ? 'Review session' : 'Learning session'}</span>
+                <CardContent className="p-4 md:p-5 pt-2 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground bg-muted/50 border rounded-xl p-3">
+                    <span className="font-medium text-foreground">{getTopicMode(suggestedTopic) === 'review' ? 'Review session' : 'Learning session'}</span>
                     <StatusBadge status={suggestedTopic.progress?.status} />
                   </div>
-                  <Button className="w-full" onClick={() => router.push(buildTopicHref(suggestedTopic))}>
+                  <Button 
+                    size="sm"
+                    className="w-full h-10 rounded-xl"
+                    onClick={() => router.push(buildTopicHref(suggestedTopic))}
+                  >
                     <Sparkles className="mr-2 h-4 w-4" />
                     Open Next Session
                   </Button>
@@ -186,111 +190,125 @@ export default function ClassroomCoursePage() {
             )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <Card className="border-white/10 bg-white/[0.04] shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription>Completion</CardDescription>
-                <CardTitle className="text-3xl">{courseStats.percentage}%</CardTitle>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
+            <Card className="rounded-[16px] md:rounded-[20px] shadow-sm bg-card hover:bg-accent/50 transition-colors">
+              <CardHeader className="p-4 md:p-5">
+                <CardDescription className="text-xs md:text-sm font-medium">Completion</CardDescription>
+                <CardTitle className="text-2xl md:text-3xl p-0 mt-1 text-primary">{courseStats.percentage}%</CardTitle>
               </CardHeader>
             </Card>
-            <Card className="border-white/10 bg-white/[0.04] shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription>Topics completed</CardDescription>
-                <CardTitle className="text-3xl">{courseStats.completedTopics}/{courseStats.totalTopics}</CardTitle>
+            <Card className="rounded-[16px] md:rounded-[20px] shadow-sm bg-card hover:bg-accent/50 transition-colors">
+              <CardHeader className="p-4 md:p-5">
+                <CardDescription className="text-xs md:text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis">Topics completed</CardDescription>
+                <CardTitle className="text-2xl md:text-3xl p-0 mt-1">{courseStats.completedTopics}/{courseStats.totalTopics}</CardTitle>
               </CardHeader>
             </Card>
-            <Card className="border-white/10 bg-white/[0.04] shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription>Ready now</CardDescription>
-                <CardTitle className="text-3xl">{courseStats.availableTopics}</CardTitle>
+            <Card className="rounded-[16px] md:rounded-[20px] shadow-sm bg-card hover:bg-accent/50 transition-colors">
+              <CardHeader className="p-4 md:p-5">
+                <CardDescription className="text-xs md:text-sm font-medium">Ready now</CardDescription>
+                <CardTitle className="text-2xl md:text-3xl p-0 mt-1">{courseStats.availableTopics}</CardTitle>
               </CardHeader>
             </Card>
-            <Card className="border-white/10 bg-white/[0.04] shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription>Due reviews</CardDescription>
-                <CardTitle className="text-3xl">{courseStats.dueReviews}</CardTitle>
+            <Card className="rounded-[16px] md:rounded-[20px] shadow-sm bg-card hover:bg-accent/50 transition-colors">
+              <CardHeader className="p-4 md:p-5">
+                <CardDescription className="text-xs md:text-sm font-medium">Due reviews</CardDescription>
+                <CardTitle className="text-2xl md:text-3xl p-0 mt-1 text-orange-500 flex items-center gap-2"><RotateCcw className="h-5 w-5 md:h-6 md:w-6" />{courseStats.dueReviews}</CardTitle>
               </CardHeader>
             </Card>
-            <Card className="border-white/10 bg-white/[0.04] shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription>Study minutes</CardDescription>
-                <CardTitle className="text-3xl">{data.analytics?.totalMinutes || 0}</CardTitle>
+            <Card className="rounded-[16px] md:rounded-[20px] shadow-sm bg-card hover:bg-accent/50 transition-colors col-span-2 md:col-span-1 xl:col-span-1">
+              <CardHeader className="p-4 md:p-5">
+                <CardDescription className="text-xs md:text-sm font-medium">Study minutes</CardDescription>
+                <CardTitle className="text-2xl md:text-3xl p-0 mt-1 flex items-center gap-2 text-emerald-500"><Clock3 className="h-5 w-5 md:h-6 md:w-6" />{data.analytics?.totalMinutes || 0}</CardTitle>
               </CardHeader>
             </Card>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_360px]">
-        <div className="space-y-6">
-          <Card className="rounded-[24px] border-white/10 bg-black/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Network className="h-5 w-5 text-primary" />
+      {/* Main Content Area */}
+      <section className="grid gap-6 lg:gap-8 xl:grid-cols-[minmax(0,1.55fr)_360px] items-start">
+        {/* Left Column */}
+        <div className="space-y-6 md:space-y-8 min-w-0">
+          <Card className="rounded-[20px] md:rounded-[24px] shadow-sm overflow-hidden">
+            <CardHeader className="p-5 md:p-6 border-b">
+              <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
+                <Network className="h-5 w-5 md:h-6 md:w-6 text-primary" />
                 Knowledge graph
               </CardTitle>
-              <CardDescription>Follow the graph and open dedicated study pages only from unlocked nodes.</CardDescription>
+              <CardDescription className="text-xs md:text-sm mt-1">Follow the graph and open dedicated study pages only from unlocked nodes.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="graph" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="graph">Graph</TabsTrigger>
-                  <TabsTrigger value="topics">Path</TabsTrigger>
-                </TabsList>
+            <CardContent className="p-0">
+              <Tabs defaultValue="graph" className="w-full flex-1 flex flex-col">
+                <div className="px-5 md:px-6 pt-4 shrink-0">
+                  <TabsList className="bg-muted p-1 w-full sm:w-auto flex overflow-x-auto no-scrollbar justify-start">
+                    <TabsTrigger value="graph" className="shrink-0">Graph View</TabsTrigger>
+                    <TabsTrigger value="topics" className="shrink-0">List View</TabsTrigger>
+                  </TabsList>
+                </div>
 
-                <TabsContent value="graph" className="space-y-4">
-                  <div className="h-[520px] overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                    <GraphVisualizer
-                      topics={graphTopics}
-                      dependencies={data.dependencies || []}
-                      onNodeClick={(node) => setSelectedTopicId(node.id)}
-                      readOnly
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    <span className="rounded-full border border-white/10 px-3 py-1">Click a node to inspect it</span>
-                    <span className="rounded-full border border-white/10 px-3 py-1">Locked nodes stay visible but unreadable</span>
-                    <span className="rounded-full border border-white/10 px-3 py-1">Learn and review run on separate pages</span>
-                  </div>
-                </TabsContent>
+                <div className="flex-1 p-5 md:p-6 min-w-0">
+                  <TabsContent value="graph" className="m-0 space-y-4">
+                    <div className="h-[400px] md:h-[520px] w-full overflow-hidden rounded-2xl border bg-card focus-within:ring-2 focus-within:ring-primary/50 transition-shadow">
+                      <GraphVisualizer
+                        topics={graphTopics}
+                        dependencies={data.dependencies || []}
+                        onNodeClick={(node) => setSelectedTopicId(node.id)}
+                        readOnly
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-[10px] md:text-xs text-muted-foreground">
+                      <span className="rounded-full border px-2.5 py-1 bg-muted/30">Click a node to inspect it</span>
+                      <span className="rounded-full border px-2.5 py-1 bg-muted/30">Locked nodes stay visible but unreadable</span>
+                      <span className="rounded-full border px-2.5 py-1 bg-muted/30">Learn and review run on separate pages</span>
+                    </div>
+                  </TabsContent>
 
-                <TabsContent value="topics" className="space-y-3">
-                  {(data.topics || []).map((topic) => (
-                    <button
-                      key={topic.id}
-                      type="button"
-                      onClick={() => setSelectedTopicId(topic.id)}
-                      className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                        topic.id === selectedTopic?.id
-                          ? 'border-primary/40 bg-primary/5'
-                          : 'border-white/10 hover:border-primary/20'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="font-medium">{topic.title}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {topic.prerequisites?.length
-                              ? `${topic.prerequisites.length} prerequisite${topic.prerequisites.length === 1 ? '' : 's'}`
-                              : 'Foundation topic'}
+                  <TabsContent value="topics" className="m-0 space-y-3">
+                    <div className="max-h-[520px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                      {(data.topics || []).map((topic) => (
+                        <button
+                          key={topic.id}
+                          type="button"
+                          onClick={() => setSelectedTopicId(topic.id)}
+                          className={`w-full rounded-2xl border p-4 md:p-5 text-left transition-all duration-300 ${
+                            topic.id === selectedTopic?.id
+                              ? 'border-primary/40 bg-primary/5 shadow-sm scale-[1.01]'
+                              : 'bg-card hover:border-border/80 hover:bg-accent/50'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                            <div className="space-y-1.5 min-w-0 flex-1">
+                              <div className="font-semibold text-sm md:text-base leading-tight break-words">{topic.title}</div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                <Network className="w-3.5 h-3.5" />
+                                {topic.prerequisites?.length
+                                  ? `${topic.prerequisites.length} prerequisite${topic.prerequisites.length === 1 ? '' : 's'}`
+                                  : 'Foundation topic'}
+                              </div>
+                            </div>
+                            <div className="shrink-0 self-start">
+                              <StatusBadge status={topic.progress?.status} />
+                            </div>
                           </div>
-                        </div>
-                        <StatusBadge status={topic.progress?.status} />
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        <span>{topic.estimated_minutes || 0} min</span>
-                        {topic.progress?.next_review_at && (
-                          <span>{isReviewDue(topic.progress.next_review_at) ? 'Review due now' : `Next review ${formatIst(topic.progress.next_review_at)}`}</span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </TabsContent>
+                          <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] md:text-xs text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1.5"><Clock3 className="w-3.5 h-3.5" /> {topic.estimated_minutes || 0} min</span>
+                            {topic.progress?.next_review_at && (
+                              <span className={`flex items-center gap-1.5 ${isReviewDue(topic.progress.next_review_at) ? 'text-orange-500' : ''}`}>
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                {isReviewDue(topic.progress.next_review_at) ? 'Review due now' : `Next review ${formatIst(topic.progress.next_review_at)}`}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </TabsContent>
+                </div>
               </Tabs>
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="flex flex-col gap-6">
             <WeakTopicsWidget
               topics={data.analytics?.weakTopics || []}
               getReviewHref={(topic) => buildTopicHref(topic, 'review')}
@@ -302,77 +320,85 @@ export default function ClassroomCoursePage() {
           </div>
 
           {data.classroomCourse.subjects?.cheat_sheet && (
-            <Card className="rounded-[24px] border-white/10 bg-black/10">
-              <CardHeader>
-                <CardTitle>Teacher cheat sheet</CardTitle>
-                <CardDescription>Quick revision notes shared for this classroom course.</CardDescription>
+            <Card className="rounded-[20px] md:rounded-[24px] shadow-sm overflow-hidden relative">
+              <CardHeader className="p-5 md:p-6 pb-2 border-b relative z-10">
+                <CardTitle className="text-lg md:text-xl flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" /> Teacher cheat sheet
+                </CardTitle>
+                <CardDescription className="text-xs md:text-sm mt-1">Quick revision notes shared for this classroom course.</CardDescription>
               </CardHeader>
-              <CardContent className="prose prose-invert max-w-none">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                  components={MarkdownComponents}
-                >
-                  {data.classroomCourse.subjects.cheat_sheet}
-                </ReactMarkdown>
+              <CardContent className="p-5 md:p-6 md:pt-6 prose prose-sm md:prose-base max-w-none relative z-10 dark:prose-invert">
+                <div className="bg-muted/30 rounded-2xl p-4 md:p-6 border">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                    components={MarkdownComponents}
+                  >
+                    {data.classroomCourse.subjects.cheat_sheet}
+                  </ReactMarkdown>
+                </div>
               </CardContent>
             </Card>
           )}
         </div>
 
-        <div className="space-y-4">
+        {/* Right Column */}
+        <div className="space-y-4 md:space-y-6 lg:sticky lg:top-8 pb-8">
           <RecommendationWidget
             topics={graphTopics}
             getTopicHref={(topic, type) => buildTopicHref(topic, type === 'review' ? 'review' : 'learn')}
           />
 
           {selectedTopic && (
-            <Card className="rounded-[24px] border-white/10 bg-black/10">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
+            <Card className="rounded-[20px] md:rounded-[24px] shadow-md border-primary/20">
+              <CardHeader className="p-5 md:p-6">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <CardDescription className="uppercase tracking-wider text-[10px] font-semibold text-primary">Selected node</CardDescription>
+                    <StatusBadge status={selectedTopic.progress?.status} />
+                  </div>
                   <div>
-                    <CardDescription>Selected node</CardDescription>
-                    <CardTitle>{selectedTopic.title}</CardTitle>
-                    <CardDescription className="mt-2">
+                    <CardTitle className="text-xl md:text-2xl leading-tight">{selectedTopic.title}</CardTitle>
+                    <CardDescription className="mt-2.5 text-xs md:text-sm leading-relaxed max-h-[100px] overflow-y-auto custom-scrollbar pr-2">
                       {selectedTopic.progress?.status === 'locked'
-                        ? 'This topic is still blocked by prerequisites.'
+                        ? 'This topic is still blocked by prerequisites. You must complete them first.'
                         : selectedTopic.description || 'Ready to study on a dedicated page.'}
                     </CardDescription>
                   </div>
-                  <StatusBadge status={selectedTopic.progress?.status} />
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock3 className="h-4 w-4 text-primary" />
-                      Estimated time
+              
+              <CardContent className="p-5 md:p-6 pt-0 space-y-5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-[16px] border bg-card p-3 text-sm flex flex-col items-start gap-1 shadow-sm">
+                    <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] md:text-xs uppercase font-semibold tracking-wider">
+                      <Clock3 className="h-3.5 w-3.5 text-primary" />
+                      Est. time
                     </div>
-                    <div className="mt-2 text-lg font-semibold">{selectedTopic.estimated_minutes || 0} min</div>
+                    <div className="text-base md:text-lg font-bold text-foreground">{selectedTopic.estimated_minutes || 0} <span className="text-xs font-medium text-muted-foreground ml-0.5">min</span></div>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <RotateCcw className="h-4 w-4 text-primary" />
+                  <div className="rounded-[16px] border bg-card p-3 text-sm flex flex-col items-start gap-1 shadow-sm">
+                    <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] md:text-xs uppercase font-semibold tracking-wider">
+                      <RotateCcw className="h-3.5 w-3.5 text-primary" />
                       Next review
                     </div>
-                    <div className="mt-2 text-lg font-semibold">
+                    <div className="text-sm md:text-base font-bold text-foreground whitespace-nowrap overflow-hidden text-ellipsis w-full">
                       {selectedTopic.progress?.next_review_at ? formatIst(selectedTopic.progress.next_review_at) : 'Not scheduled'}
                     </div>
                   </div>
                 </div>
 
                 {selectedTopic.prerequisites?.length > 0 && (
-                  <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Target className="h-4 w-4 text-primary" />
+                  <div className="space-y-3 rounded-[18px] border bg-muted/20 p-4">
+                    <div className="flex items-center gap-2 text-[11px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <Target className="h-3.5 w-3.5 text-primary" />
                       Unlock path
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2.5 max-h-[160px] overflow-y-auto custom-scrollbar pr-2">
                       {selectedTopic.prerequisites.map((prerequisite) => (
-                        <div key={prerequisite.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-sm">
-                          <span>{prerequisite.title}</span>
-                          <StatusBadge status={prerequisite.status} />
+                        <div key={prerequisite.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border bg-card p-3 text-xs md:text-sm shadow-sm">
+                          <span className="font-medium truncate pr-2 text-foreground">{prerequisite.title}</span>
+                          <StatusBadge status={prerequisite.status} className="w-fit scale-90 origin-left sm:origin-right" />
                         </div>
                       ))}
                     </div>
@@ -380,17 +406,20 @@ export default function ClassroomCoursePage() {
                 )}
 
                 {selectedTopic.progress?.status === 'locked' ? (
-                  <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
-                    <div className="flex items-center gap-2 font-medium">
+                  <div className="rounded-[16px] border border-orange-500/20 bg-orange-500/10 p-4 text-sm text-orange-600 dark:text-orange-200 shadow-inner">
+                    <div className="flex items-center gap-2 font-bold mb-1">
                       <Lock className="h-4 w-4" />
                       Topic locked
                     </div>
-                    <p className="mt-2 text-amber-50/90">
+                    <p className="text-[11px] md:text-xs opacity-90 leading-relaxed">
                       Complete and review the required prerequisites before opening this topic.
                     </p>
                   </div>
                 ) : (
-                  <Button onClick={() => router.push(buildTopicHref(selectedTopic))} className="w-full h-11">
+                  <Button 
+                    onClick={() => router.push(buildTopicHref(selectedTopic))} 
+                    className="w-full h-12 rounded-xl text-primary-foreground shadow-sm transition-all active:scale-[0.98]"
+                  >
                     <Sparkles className="mr-2 h-4 w-4" />
                     {getTopicMode(selectedTopic) === 'review' ? 'Open Review Session' : 'Open Learning Session'}
                   </Button>
@@ -399,27 +428,27 @@ export default function ClassroomCoursePage() {
             </Card>
           )}
 
-          <Card className="rounded-[24px] border-white/10 bg-black/10">
-            <CardHeader>
-              <CardTitle>Course insights</CardTitle>
-              <CardDescription>Use the dashboard before opening a focused session.</CardDescription>
+          <Card className="rounded-[20px] md:rounded-[24px] shadow-sm">
+             <CardHeader className="p-5 md:p-6 pb-2">
+              <CardDescription className="uppercase tracking-wider text-[10px] font-semibold text-primary">Tips</CardDescription>
+              <CardTitle className="text-base md:text-lg">Course insights</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <div className="flex items-center gap-2 text-foreground">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                  Weekly activity
+            <CardContent className="p-5 md:p-6 pt-3 space-y-3 shrink-0 relative z-10 min-w-0">
+                <div className="rounded-xl md:rounded-[18px] border bg-muted/30 p-3 md:p-4 hover:bg-muted/50 transition-colors overflow-hidden">
+                  <div className="flex items-center gap-2.5 text-foreground font-semibold text-xs md:text-sm">
+                    <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 shrink-0 min-w-max"><TrendingUp className="h-4 w-4" /></span>
+                    <span className="truncate">Weekly activity</span>
+                  </div>
+                  <p className="mt-2 md:mt-2.5 max-w-[280px] text-[11px] md:text-sm leading-relaxed text-muted-foreground">Track how much time you spent learning versus reviewing inside this classroom course.</p>
                 </div>
-                <p className="mt-2 leading-6">Track how much time you spent learning versus reviewing inside this classroom course.</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <div className="flex items-center gap-2 text-foreground">
-                  <Target className="h-4 w-4 text-primary" />
-                  Weak topics
+                <div className="rounded-xl md:rounded-[18px] border bg-muted/30 p-3 md:p-4 hover:bg-muted/50 transition-colors overflow-hidden">
+                  <div className="flex items-center gap-2.5 text-foreground font-semibold text-xs md:text-sm">
+                    <span className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500 dark:text-orange-400 shrink-0 min-w-max"><Target className="h-4 w-4" /></span>
+                    <span className="truncate">Weak topics</span>
+                  </div>
+                  <p className="mt-2 md:mt-2.5 max-w-[280px] text-[11px] md:text-sm leading-relaxed text-muted-foreground">Review low-scoring topics again to strengthen retention before they become a bottleneck.</p>
                 </div>
-                <p className="mt-2 leading-6">Review low-scoring topics again to strengthen retention before they become a bottleneck.</p>
-              </div>
-            </CardContent>
+              </CardContent>
           </Card>
         </div>
       </section>

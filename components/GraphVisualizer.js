@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import ReactFlow, {
   Background,
-  MiniMap,
   useNodesState,
   useEdgesState,
   MarkerType,
@@ -29,8 +28,7 @@ export default function GraphVisualizer({
   onEdgeClick,
   onConnect,
   onPaneContextMenu,
-  readOnly = false,
-  hideMiniMap = false
+  readOnly = false
 }) {
   const { resolvedTheme } = useTheme()
   const [nodes, setNodes, onNodesChange] = useNodesState([])
@@ -187,14 +185,6 @@ export default function GraphVisualizer({
         elementsSelectable={!readOnly}
         proOptions={{ hideAttribution: true }}
       >
-        {!hideMiniMap && (
-          <MiniMap
-            pannable
-            zoomable
-            nodeBorderRadius={12}
-            className={isDark ? '!bg-zinc-950/90' : '!bg-white/90'}
-          />
-        )}
         <Background
           color={isDark ? "#3f3f46" : "#a1a1aa"} // Zinc-400 for better visibility in light mode
           gap={16}

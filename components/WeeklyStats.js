@@ -62,7 +62,7 @@ export default function WeeklyStats({ logs, data: preloadedData, totalMinutes: p
     : (logs ? logs.reduce((acc, curr) => acc + (curr.duration_minutes || 0), 0) : 0)
 
   return (
-    <Card className="glass-card shadow-lg">
+    <Card className="shadow-sm border">
       <CardHeader>
         <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Weekly Activity</CardTitle>
@@ -72,9 +72,9 @@ export default function WeeklyStats({ logs, data: preloadedData, totalMinutes: p
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[200px] w-full">
+        <div className="h-[280px] w-full">
           {(!chartData.some(d => d.learning > 0 || d.review > 0)) ? (
-            <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground text-sm">
                 No activity recorded yet
             </div>
           ) : (
