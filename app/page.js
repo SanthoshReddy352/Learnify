@@ -98,7 +98,7 @@ export default function LandingPage() {
       {/* Top Navigation removed - handled by global Navbar */}
 
       {/* Hero Section */}
-      <section className="relative pt-48 pb-32 px-6">
+      <section className="relative pt-5 pb-32 px-6">
 
 
         <div className="container mx-auto max-w-5xl text-center z-10 relative">
