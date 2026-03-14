@@ -2,7 +2,7 @@
 
 **AI-Powered Adaptive Learning & Smart Study Orchestrator**
 
-Learnify is an intelligent study platform that builds personalized learning roadmaps using Knowledge Graphs, Spaced Repetition (SM-2), and AI. It ensures students always know *what* to study next by managing topic dependencies and tracking retention over time.
+Learnify is an intelligent study platform that builds personalized learning roadmaps using Knowledge Graphs, Spaced Repetition (SM-2), and AI. It ensures students always know *what* to study next by managing topic dependencies and tracking retention over time
 
 ## **📚 Table of Contents**
 
