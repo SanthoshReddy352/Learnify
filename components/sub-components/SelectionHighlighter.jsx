@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Highlighter } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { createPortal } from 'react-dom'
 
@@ -52,6 +51,7 @@ const extractMarkdown = (node) => {
 export default function SelectionHighlighter() {
   const [selectionStyle, setSelectionStyle] = useState(null)
   const [mounted, setMounted] = useState(false)
+  const updateTimeoutRef = useRef(null)
 
   useEffect(() => {
     setMounted(true)
@@ -59,46 +59,90 @@ export default function SelectionHighlighter() {
   }, [])
 
   useEffect(() => {
-    let timeoutId = null;
-
-    const handleMouseUp = () => {
-      // Small timeout to allow double-clicks to resolve selection
-      timeoutId = setTimeout(() => {
-        const selection = window.getSelection()
-        if (selection && !selection.isCollapsed) {
-          const text = selection.toString().trim()
-          if (text.length > 0) {
-            const range = selection.getRangeAt(0)
-            const rect = range.getBoundingClientRect()
-            
-            // Show button directly above the selected text
-            setSelectionStyle({
-              top: Math.max(0, rect.top + window.scrollY - 45),
-              left: rect.left + window.scrollX + (rect.width / 2) - 50
-            })
-          } else {
-            setSelectionStyle(null)
-          }
-        } else {
-          setSelectionStyle(null)
-        }
-      }, 50)
+    const clearScheduledUpdate = () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+        updateTimeoutRef.current = null
+      }
     }
 
-    const handleMouseDown = (e) => {
-      // Don't hide if clicking on our own button
-      if (e.target.closest('#selection-highlighter-btn')) return
+    const updateSelectionBubble = () => {
+      const selection = window.getSelection()
+
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+        setSelectionStyle(null)
+        return
+      }
+
+      const text = selection.toString().trim()
+      if (!text.length) {
+        setSelectionStyle(null)
+        return
+      }
+
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+
+      if (!rect || (!rect.width && !rect.height)) {
+        setSelectionStyle(null)
+        return
+      }
+
+      const viewport = window.visualViewport
+      const viewportWidth = viewport?.width || window.innerWidth
+      const offsetLeft = viewport?.offsetLeft || 0
+      const offsetTop = viewport?.offsetTop || 0
+      const bubbleWidth = viewportWidth < 420 ? 214 : 246
+      const bubbleHeight = 44
+      const preferredTop = rect.top + offsetTop - bubbleHeight - 12
+      const fallbackTop = rect.bottom + offsetTop + 12
+      const clampedLeft = Math.min(
+        offsetLeft + viewportWidth - bubbleWidth - 12,
+        Math.max(offsetLeft + 12, rect.left + offsetLeft + (rect.width / 2) - (bubbleWidth / 2))
+      )
+
+      setSelectionStyle({
+        top: preferredTop > offsetTop + 8 ? preferredTop : fallbackTop,
+        left: clampedLeft,
+        width: bubbleWidth
+      })
+    }
+
+    const scheduleSelectionBubbleUpdate = () => {
+      clearScheduledUpdate()
+      updateTimeoutRef.current = setTimeout(updateSelectionBubble, 80)
+    }
+
+    const handlePointerDown = (event) => {
+      if (event.target.closest('#selection-highlighter-btn')) return
       setSelectionStyle(null)
     }
-    
-    // Listen for selection changes via mouse
-    document.addEventListener('mouseup', handleMouseUp)
-    document.addEventListener('mousedown', handleMouseDown)
-    
+
+    const handleViewportScroll = () => setSelectionStyle(null)
+
+    document.addEventListener('selectionchange', scheduleSelectionBubbleUpdate)
+    document.addEventListener('mouseup', scheduleSelectionBubbleUpdate)
+    document.addEventListener('keyup', scheduleSelectionBubbleUpdate)
+    document.addEventListener('touchend', scheduleSelectionBubbleUpdate, { passive: true })
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown, { passive: true })
+    window.addEventListener('scroll', handleViewportScroll, true)
+    window.addEventListener('resize', scheduleSelectionBubbleUpdate)
+    window.visualViewport?.addEventListener('resize', scheduleSelectionBubbleUpdate)
+    window.visualViewport?.addEventListener('scroll', scheduleSelectionBubbleUpdate)
+
     return () => {
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.removeEventListener('mousedown', handleMouseDown)
-      if (timeoutId) clearTimeout(timeoutId)
+      document.removeEventListener('selectionchange', scheduleSelectionBubbleUpdate)
+      document.removeEventListener('mouseup', scheduleSelectionBubbleUpdate)
+      document.removeEventListener('keyup', scheduleSelectionBubbleUpdate)
+      document.removeEventListener('touchend', scheduleSelectionBubbleUpdate)
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
+      window.removeEventListener('scroll', handleViewportScroll, true)
+      window.removeEventListener('resize', scheduleSelectionBubbleUpdate)
+      window.visualViewport?.removeEventListener('resize', scheduleSelectionBubbleUpdate)
+      window.visualViewport?.removeEventListener('scroll', scheduleSelectionBubbleUpdate)
+      clearScheduledUpdate()
     }
   }, [])
 
@@ -107,13 +151,13 @@ export default function SelectionHighlighter() {
   return createPortal(
     <div
       id="selection-highlighter-btn"
-      className="absolute z-[200] p-1.5 rounded-lg bg-slate-800 dark:bg-slate-900 shadow-xl border border-slate-700/50 flex items-center gap-1.5 animate-in zoom-in-95 duration-100"
+      className="fixed z-[200] flex items-center gap-1.5 rounded-xl border border-slate-300/80 bg-white/95 p-2 shadow-2xl backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/95 animate-in zoom-in-95 duration-100"
       style={selectionStyle}
     >
-      <div className="text-xs font-semibold text-slate-300 pr-1 pl-1 flex items-center">
+      <div className="flex items-center px-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
         <Highlighter className="w-3.5 h-3.5 mr-1.5" /> Note
       </div>
-      <div className="w-px h-4 bg-slate-700 mx-0.5" />
+      <div className="mx-0.5 h-4 w-px bg-slate-300 dark:bg-slate-700" />
       
       {/* Color Options */}
       {[
@@ -146,7 +190,7 @@ export default function SelectionHighlighter() {
               }
             }
           }}
-          className={`w-5 h-5 rounded-full border shadow-sm transition-transform hover:scale-110 active:scale-95 ${color.class}`}
+          className={`h-5 w-5 rounded-full border shadow-sm transition-transform hover:scale-110 active:scale-95 ${color.class}`}
           title={`Highlight ${color.id}`}
         />
       ))}

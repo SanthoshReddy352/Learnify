@@ -1,15 +1,64 @@
-import { useState } from 'react'
+'use client'
+
+import { useState, useTransition } from 'react'
 import { motion } from 'framer-motion'
-import { FileText, Download, ExternalLink, User, Calendar, BookOpen } from 'lucide-react'
+import { ArrowBigDown, ArrowBigUp, BookOpen, Calendar, Download, ExternalLink, Loader2, User } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { getDrivePreviewLink, getDriveDownloadLink } from '@/lib/drive-utils'
+import { getDriveDownloadLink } from '@/lib/drive-utils'
+import { voteOnResource } from '@/lib/actions'
 import { ResourceViewModal } from './ResourceViewModal'
 
 export function CommunityResourceCard({ resource }) {
   const [viewOpen, setViewOpen] = useState(false)
+  const [voteState, setVoteState] = useState({
+    upvotes: resource.upvotes || 0,
+    downvotes: resource.downvotes || 0,
+    userVote: resource.userVote || null
+  })
+  const [isVotePending, startVoteTransition] = useTransition()
   const downloadLink = getDriveDownloadLink(resource.drive_link)
   const isFolder = resource.drive_link.includes('/folders/')
+
+  const updateVoteState = (currentState, requestedVote) => {
+    const nextVote = currentState.userVote === requestedVote ? null : requestedVote
+    let upvotes = currentState.upvotes
+    let downvotes = currentState.downvotes
+
+    if (currentState.userVote === 1) upvotes = Math.max(0, upvotes - 1)
+    if (currentState.userVote === -1) downvotes = Math.max(0, downvotes - 1)
+    if (nextVote === 1) upvotes += 1
+    if (nextVote === -1) downvotes += 1
+
+    return {
+      upvotes,
+      downvotes,
+      userVote: nextVote
+    }
+  }
+
+  const handleVote = (requestedVote) => {
+    const previousState = voteState
+    const optimisticState = updateVoteState(previousState, requestedVote)
+    setVoteState(optimisticState)
+
+    startVoteTransition(async () => {
+      const result = await voteOnResource(resource.id, requestedVote)
+
+      if (!result.success) {
+        setVoteState(previousState)
+        toast.error(result.error || 'Failed to update vote')
+        return
+      }
+
+      setVoteState({
+        upvotes: result.upvotes ?? optimisticState.upvotes,
+        downvotes: result.downvotes ?? optimisticState.downvotes,
+        userVote: result.vote ?? optimisticState.userVote
+      })
+    })
+  }
 
   return (
     <>
@@ -58,36 +107,73 @@ export function CommunityResourceCard({ resource }) {
                   <Calendar className="h-3 w-3" />
                   <span>{new Date(resource.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
                </div>
+               <div className="flex items-center gap-4 text-xs text-muted-foreground/70">
+                  <span className="flex items-center gap-1.5">
+                    <ArrowBigUp className="h-3.5 w-3.5 text-emerald-500" />
+                    {voteState.upvotes}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <ArrowBigDown className="h-3.5 w-3.5 text-rose-500" />
+                    {voteState.downvotes}
+                  </span>
+               </div>
             </div>
           </CardContent>
 
-          <CardFooter className="pt-4 border-t border-white/5 bg-white/5 grid grid-cols-2 gap-3">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="w-full hover:bg-primary/10 hover:text-primary text-xs font-semibold uppercase tracking-wider h-10 border border-transparent hover:border-primary/20 gap-2"
-              onClick={() => setViewOpen(true)}
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              View
-            </Button>
-            {!isFolder && (
-              <Button 
-                size="sm" 
-                className="w-full bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground text-xs font-semibold uppercase tracking-wider h-10 shadow-none gap-2 border border-primary/20"
-                asChild
+          <CardFooter className="pt-4 border-t border-white/5 bg-white/5 flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant={voteState.userVote === 1 ? 'default' : 'outline'}
+                size="sm"
+                className="w-full gap-2 text-xs font-semibold uppercase tracking-wider h-10"
+                onClick={() => handleVote(1)}
+                disabled={isVotePending}
               >
-                <a href={downloadLink} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-3.5 w-3.5" />
-                  Download
-                </a>
+                {isVotePending && voteState.userVote === 1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowBigUp className="h-3.5 w-3.5" />}
+                Upvote
+                <span>{voteState.upvotes}</span>
               </Button>
-            )}
-            {isFolder && (
-              <div className="text-[10px] text-muted-foreground flex items-center justify-center p-2 text-center leading-tight">
-                 Folder download not supported
-              </div>
-            )}
+              <Button 
+                variant={voteState.userVote === -1 ? 'destructive' : 'outline'}
+                size="sm" 
+                className="w-full gap-2 text-xs font-semibold uppercase tracking-wider h-10"
+                onClick={() => handleVote(-1)}
+                disabled={isVotePending}
+              >
+                {isVotePending && voteState.userVote === -1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowBigDown className="h-3.5 w-3.5" />}
+                Downvote
+                <span>{voteState.downvotes}</span>
+              </Button>
+            </div>
+
+            <div className={`grid gap-3 ${isFolder ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full hover:bg-primary/10 hover:text-primary text-xs font-semibold uppercase tracking-wider h-10 border border-transparent hover:border-primary/20 gap-2"
+                onClick={() => setViewOpen(true)}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View
+              </Button>
+              {!isFolder && (
+                <Button 
+                  size="sm" 
+                  className="w-full bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground text-xs font-semibold uppercase tracking-wider h-10 shadow-none gap-2 border border-primary/20"
+                  asChild
+                >
+                  <a href={downloadLink} target="_blank" rel="noopener noreferrer">
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </a>
+                </Button>
+              )}
+              {isFolder && (
+                <div className="text-[10px] text-muted-foreground flex items-center justify-center rounded-md border border-dashed border-white/10 p-2 text-center leading-tight">
+                  Folder download not supported
+                </div>
+              )}
+            </div>
           </CardFooter>
         </Card>
       </motion.div>

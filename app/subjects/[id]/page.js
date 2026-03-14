@@ -32,6 +32,51 @@ import WeakTopicsWidget from '@/components/WeakTopicsWidget'
 import { Switch } from '@/components/ui/switch'
 import { ThemeToggle } from '@/components/sub-components/theme-toggle'
 
+function buildSafeFilename(title, suffix, extension) {
+  const base = (title || 'learnify')
+    .replace(/[^a-z0-9]/gi, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .toLowerCase()
+
+  return `${base || 'learnify'}_${suffix}.${extension}`
+}
+
+async function exportBlob({ blob, filename, title, mimeType }) {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const file = typeof File !== 'undefined'
+    ? new File([blob], filename, { type: mimeType || blob.type || 'application/octet-stream' })
+    : null
+
+  if (navigator.share && navigator.canShare && file && navigator.canShare({ files: [file] })) {
+    await navigator.share({
+      title: title || filename,
+      files: [file]
+    })
+    return true
+  }
+
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = filename
+  anchor.target = '_blank'
+  anchor.rel = 'noopener noreferrer'
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+    window.open(objectUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+  return true
+}
+
 export default function SubjectPage() {
   const router = useRouter()
   // ... rest of component
@@ -82,7 +127,7 @@ export default function SubjectPage() {
   
   const [isCopied, setIsCopied] = useState(false)
 
-  const handleDownloadNotes = () => {
+  const handleDownloadNotes = async () => {
     const topicsWithNotes = topics.filter(t => t.user_notes && t.user_notes.trim().length > 0)
     if (topicsWithNotes.length === 0) {
       toast.error('No notes available to download.')
@@ -94,17 +139,18 @@ export default function SubjectPage() {
       content += `---\n\n## ${t.title}\n\n${t.user_notes}\n\n`
     })
 
-    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${subject.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_notes.md`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    
-    toast.success('Notes downloaded!')
+    try {
+      await exportBlob({
+        blob: new Blob([content], { type: 'text/markdown;charset=utf-8' }),
+        filename: buildSafeFilename(subject?.title, 'notes', 'md'),
+        title: `${subject?.title || 'Subject'} Notes`,
+        mimeType: 'text/markdown'
+      })
+      toast.success('Notes export is ready.')
+    } catch (error) {
+      console.error('Notes export error:', error)
+      toast.error('Failed to export notes.')
+    }
   }
 
   const [isGeneratingCheatSheet, setIsGeneratingCheatSheet] = useState(false)
@@ -149,14 +195,20 @@ export default function SubjectPage() {
       
       const opt = {
         margin:       [10, 10, 10, 10],
-        filename:     `${subject.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_cheatsheet.pdf`,
+        filename:     buildSafeFilename(subject?.title, 'cheatsheet', 'pdf'),
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, logging: false },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      await html2pdf().set(opt).from(element).save();
-      toast.success('PDF downloaded successfully!', { id: 'pdf-toast' });
+      const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+      await exportBlob({
+        blob: pdfBlob,
+        filename: opt.filename,
+        title: `${subject?.title || 'Subject'} Cheat Sheet`,
+        mimeType: 'application/pdf'
+      })
+      toast.success('Cheat sheet export is ready.', { id: 'pdf-toast' });
     } catch (error) {
       console.error('PDF generation error:', error);
       toast.error('Failed to generate PDF.', { id: 'pdf-toast' });
