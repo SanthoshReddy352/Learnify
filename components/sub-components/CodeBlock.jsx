@@ -50,79 +50,96 @@ const sanitizeMermaidCode = (code) => {
   const formatLabel = (label) => {
     return label.trim().replace(/[\r\n]+/g, ' ').replace(/"/g, "'")
   }
+
+  const firstDiagramLine = result
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.length > 0)
+
+  const isFlowchartLike = /^(flowchart|graph)\b/i.test(firstDiagramLine || '')
+  const isClassDiagram = /^classDiagram\b/i.test(firstDiagramLine || '')
   
-  // === UNIVERSAL FIX: Convert problematic labels to quoted format ===
-  // We use callbacks to sanitize the inner content (remove newlines, trim) before quoting
-  
-  // 1. Rectangle [Label]
-  result = result.replace(/(\w+)\[([^\]"]*[()&<>#@!, \s][^\]"]*)\]/g, 
-    (m, id, label) => `${id}["${formatLabel(label)}"]`)
-  
-  // 2. Diamond/Rhombus {Label}
-  result = result.replace(/(\w+)\{([^}"]*[()&<>#@!, \s][^}"]*)\}/g, 
-    (m, id, label) => `${id}{"${formatLabel(label)}"}`)
-  
-  // 3. Double curly - Hexagon {{Label}}
-  result = result.replace(/(\w+)\{\{([^}"]*[()&<>#@!, \s][^}"]*)\}\}/g, 
-    (m, id, label) => `${id}{{"${formatLabel(label)}"}}`)
-  
-  // 4. Stadium shape with nested parens - CONVERT TO RECTANGLE (safest)
-  result = result.replace(/(\w+)\(([^)(]*\([^)]*\)[^)(]*)\)/g, 
-    (m, id, label) => `${id}["${formatLabel(label)}"]`)
-  
-  // 5. Circle ((Label))
-  result = result.replace(/(\w+)\(\(([^)"]*[()&<>#@!, \s][^)"]*)\)\)/g, 
-    (m, id, label) => `${id}(("${formatLabel(label)}"))`)
-  
-  // 6. Triple circle (((Label)))
-  result = result.replace(/(\w+)\(\(\(([^)"]*[()&<>#@!, \s][^)"]*)\)\)\)/g, 
-    (m, id, label) => `${id}(((" ${formatLabel(label)} ")))`) // Extra spaces for triple circle visibility
-  
-  // 7. Subroutine [[Label]]
-  result = result.replace(/(\w+)\[\[([^\]"]*[()&<>#@!, \s][^\]"]*)\]\]/g, 
-    (m, id, label) => `${id}[["${formatLabel(label)}"]]`)
-  
-  // 8. Cylinder [(Label)]
-  result = result.replace(/(\w+)\[\(([^)"]*[()&<>#@!, \s][^)"]*)\)\]/g, 
-    (m, id, label) => `${id}[("${formatLabel(label)}")]`)
-  
-  // 9. Stadium ([Label])
-  result = result.replace(/(\w+)\(\[([^\]"]*[()&<>#@!, \s][^\]"]*)\]\)/g, 
-    (m, id, label) => `${id}(["${formatLabel(label)}"])`)
-  
-  // 10. Asymmetric >Label]
-  result = result.replace(/(\w+)>([^\]"]*[()&<>#@!, \s][^\]"]*)\]/g, 
-    (m, id, label) => `${id}>"${formatLabel(label)}"]`)
-  
-  // 11. Parallelogram [/Label/]
-  result = result.replace(/(\w+)\[\/([^\/\]"]*[()&<>#@!, \s][^\/\]"]*)\/\]/g, 
-    (m, id, label) => `${id}[/"${formatLabel(label)}"/]`)
-  
-  // 12. Parallelogram alt [\Label\]
-  result = result.replace(/(\w+)\[\\([^\\\]"]*[()&<>#@!, \s][^\\\]"]*)\\]/g, 
-    (m, id, label) => `${id}[\\"${formatLabel(label)}\\"]`)
-  
-  // 13. Trapezoid [/Label\]
-  result = result.replace(/(\w+)\[\/([^\/\\\]"]*[()&<>#@!, \s][^\/\\\]"]*)\\]/g, 
-    (m, id, label) => `${id}[/"${formatLabel(label)}\\"]`)
-  
-  // 14. Inverted trapezoid [\Label/]
-  result = result.replace(/(\w+)\[\\([^\\\]"]*[()&<>#@!, \s][^\\\]"]*)\/\]/g, 
-    (m, id, label) => `${id}[\\"${formatLabel(label)}"/]`)
-  
-  // 15. Simple stadium (Label)
-  result = result.replace(/(\w+)\(([^)()"]*[&<>#@!, \s][^)()"]*)\)/g, 
-    (m, id, label) => `${id}("${formatLabel(label)}")`)
-  
-  // === FIX SUBGRAPH LABELS ===
-  result = result.replace(/^(\s*subgraph\s+)(\w+)\s*\(([^)]+)\)\s*$/gm, 
-    (m, prefix, id, label) => `${prefix}${id}["${formatLabel(label)}"]`)
-  result = result.replace(/^(\s*subgraph\s+)([A-Za-z_][A-Za-z0-9_]*)\s+([^"\[\n][^\n]*[^\s])\s*$/gm, 
-    (m, prefix, id, label) => `${prefix}${id}["${formatLabel(label)}"]`)
-  
-  // === FIX LINK/EDGE LABELS ===
-  result = result.replace(/(\-\->|\-\-|\.\.>|==>)\|([^|]*[()&<> \s][^|]*)\|/g, 
-    (m, arrow, label) => `${arrow}|"${formatLabel(label)}"|`)
+  if (isFlowchartLike) {
+    // Flowchart syntax is where these node-shape and subgraph rewrites are valid.
+
+    // 1. Rectangle [Label]
+    result = result.replace(/(\w+)\[([^\]"]*[()&<>#@!, \s][^\]"]*)\]/g,
+      (m, id, label) => `${id}["${formatLabel(label)}"]`)
+
+    // 2. Diamond/Rhombus {Label}
+    result = result.replace(/(\w+)\{([^}"]*[()&<>#@!, \s][^}"]*)\}/g,
+      (m, id, label) => `${id}{"${formatLabel(label)}"}`)
+
+    // 3. Double curly - Hexagon {{Label}}
+    result = result.replace(/(\w+)\{\{([^}"]*[()&<>#@!, \s][^}"]*)\}\}/g,
+      (m, id, label) => `${id}{{"${formatLabel(label)}"}}`)
+
+    // 4. Stadium shape with nested parens - convert to rectangle
+    result = result.replace(/(\w+)\(([^)(]*\([^)]*\)[^)(]*)\)/g,
+      (m, id, label) => `${id}["${formatLabel(label)}"]`)
+
+    // 5. Circle ((Label))
+    result = result.replace(/(\w+)\(\(([^)"]*[()&<>#@!, \s][^)"]*)\)\)/g,
+      (m, id, label) => `${id}(("${formatLabel(label)}"))`)
+
+    // 6. Triple circle (((Label)))
+    result = result.replace(/(\w+)\(\(\(([^)"]*[()&<>#@!, \s][^)"]*)\)\)\)/g,
+      (m, id, label) => `${id}(((" ${formatLabel(label)} ")))`)
+
+    // 7. Subroutine [[Label]]
+    result = result.replace(/(\w+)\[\[([^\]"]*[()&<>#@!, \s][^\]"]*)\]\]/g,
+      (m, id, label) => `${id}[["${formatLabel(label)}"]]`)
+
+    // 8. Cylinder [(Label)]
+    result = result.replace(/(\w+)\[\(([^)"]*[()&<>#@!, \s][^)"]*)\)\]/g,
+      (m, id, label) => `${id}[("${formatLabel(label)}")]`)
+
+    // 9. Stadium ([Label])
+    result = result.replace(/(\w+)\(\[([^\]"]*[()&<>#@!, \s][^\]"]*)\]\)/g,
+      (m, id, label) => `${id}(["${formatLabel(label)}"])`)
+
+    // 10. Asymmetric >Label]
+    result = result.replace(/(\w+)>([^\]"]*[()&<>#@!, \s][^\]"]*)\]/g,
+      (m, id, label) => `${id}>"${formatLabel(label)}"]`)
+
+    // 11. Parallelogram [/Label/]
+    result = result.replace(/(\w+)\[\/([^\/\]"]*[()&<>#@!, \s][^\/\]"]*)\/\]/g,
+      (m, id, label) => `${id}[/"${formatLabel(label)}"/]`)
+
+    // 12. Parallelogram alt [\Label\]
+    result = result.replace(/(\w+)\[\\([^\\\]"]*[()&<>#@!, \s][^\\\]"]*)\\]/g,
+      (m, id, label) => `${id}[\\"${formatLabel(label)}\\"]`)
+
+    // 13. Trapezoid [/Label\]
+    result = result.replace(/(\w+)\[\/([^\/\\\]"]*[()&<>#@!, \s][^\/\\\]"]*)\\]/g,
+      (m, id, label) => `${id}[/"${formatLabel(label)}\\"]`)
+
+    // 14. Inverted trapezoid [\Label/]
+    result = result.replace(/(\w+)\[\\([^\\\]"]*[()&<>#@!, \s][^\\\]"]*)\/\]/g,
+      (m, id, label) => `${id}[\\"${formatLabel(label)}"/]`)
+
+    // 15. Simple stadium (Label)
+    result = result.replace(/(\w+)\(([^)()"]*[&<>#@!, \s][^)()"]*)\)/g,
+      (m, id, label) => `${id}("${formatLabel(label)}")`)
+
+    // Fix subgraph labels
+    result = result.replace(/^(\s*subgraph\s+)(\w+)\s*\(([^)]+)\)\s*$/gm,
+      (m, prefix, id, label) => `${prefix}${id}["${formatLabel(label)}"]`)
+    result = result.replace(/^(\s*subgraph\s+)([A-Za-z_][A-Za-z0-9_]*)\s+([^"\[\n][^\n]*[^\s])\s*$/gm,
+      (m, prefix, id, label) => `${prefix}${id}["${formatLabel(label)}"]`)
+
+    // Fix flowchart edge labels
+    result = result.replace(/(\-\->|\-\-|\.\.>|==>)\|([^|]*[()&<> \s][^|]*)\|/g,
+      (m, arrow, label) => `${arrow}|"${formatLabel(label)}"|`)
+  }
+
+  if (isClassDiagram) {
+    // Mermaid class diagrams require explicit `class` for standalone labeled declarations.
+    result = result.replace(
+      /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)\s*(\[(?:"[^"]*"|`[^`]*`)\])\s*$/gm,
+      (m, indent, id, label) => `${indent}class ${id}${label}`
+    )
+  }
   
   // === REMOVE COMMENTS ===
   result = result.replace(/;\s*%[^%\n].*$/gm, ';')
@@ -130,10 +147,12 @@ const sanitizeMermaidCode = (code) => {
   result = result.replace(/(\-\->|\-\-|==>|\.\.>)\s*%[^%\n].*$/gm, '$1')
   result = result.replace(/^\s*%[^%].*$/gm, '')
   
-  // === FIX MALFORMED ARROWS ===
-  result = result.replace(/\-\-\s*\-\->/g, '-->')
-  result = result.replace(/\-\s+\->/g, '-->')
-  result = result.replace(/=\s+=>/g, '==>')
+  if (isFlowchartLike) {
+    // Fix malformed arrows only for flowchart syntax.
+    result = result.replace(/\-\-\s*\-\->/g, '-->')
+    result = result.replace(/\-\s+\->/g, '-->')
+    result = result.replace(/=\s+=>/g, '==>')
+  }
   
   // === REMOVE UNSUPPORTED SYNTAX ===
   result = result.replace(/^\s*enum\s+\w+\s*\{[^}]*\}/gm, '')
