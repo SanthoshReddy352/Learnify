@@ -16,14 +16,24 @@ export const cleanCodeContent = (content) => {
   return cleaned
 }
 
+const createStableMermaidId = (code) => {
+  let hash = 0
+
+  for (let index = 0; index < code.length; index += 1) {
+    hash = ((hash << 5) - hash + code.charCodeAt(index)) | 0
+  }
+
+  return Math.abs(hash).toString(36)
+}
+
 // Extract title from Mermaid code (%%title: Title Here)
-const parseMermaidTitle = (code) => {
+export const parseMermaidTitle = (code) => {
   const titleMatch = code.match(/^%%title:\s*(.+)$/m)
   return titleMatch ? titleMatch[1].trim() : null
 }
 
 // Extract description from Mermaid code (%%desc: Description here)
-const parseMermaidDescription = (code) => {
+export const parseMermaidDescription = (code) => {
   const descMatch = code.match(/^%%desc:\s*(.+)$/m)
   return descMatch ? descMatch[1].trim() : null
 }
@@ -370,7 +380,7 @@ const DiagramLightbox = ({ svg, onClose, isDarkMode, title }) => {
 }
 
 // Mermaid Diagram Component with Lightbox
-const MermaidDiagram = ({ code }) => {
+const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
   const containerRef = useRef(null)
   const uniqueId = useId().replace(/:/g, '-')
   const [svg, setSvg] = useState('')
@@ -595,8 +605,7 @@ const MermaidDiagram = ({ code }) => {
           securityLevel: 'loose',
         })
         
-        // Use unique ID for each render to avoid caching issues
-        const renderId = `mermaid-${uniqueId}-${theme}-${Date.now()}`
+        const renderId = `mermaid-${uniqueId}-${theme}-${createStableMermaidId(cleanCode)}`
         const { svg: renderedSvg } = await mermaid.render(renderId, cleanCode)
         setSvg(renderedSvg)
         setError(null)
@@ -644,7 +653,8 @@ const MermaidDiagram = ({ code }) => {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <button
+              {allowAddToNotes && (
+                <button
                 onClick={(e) => {
                   e.stopPropagation()
                   const markdown = `\`\`\`mermaid\n${code}\n\`\`\``
@@ -658,7 +668,8 @@ const MermaidDiagram = ({ code }) => {
               >
                 <PenLine className="h-3 w-3" />
                 <span className="hidden sm:inline">Notes</span>
-              </button>
+                </button>
+              )}
               <span className="text-xs text-muted-foreground shrink-0">
               Click to expand
             </span>
@@ -688,7 +699,7 @@ const MermaidDiagram = ({ code }) => {
   )
 }
 
-const CodeBlock = ({ node, inline, className, children, ...props }) => {
+const CodeBlock = ({ node, inline, className, children, allowAddToNotes = true, ...props }) => {
   const match = /language-(\w+)/.exec(className || '')
   const language = match ? match[1] : ''
   const codeContent = cleanCodeContent(children)
@@ -705,7 +716,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
 
   // Handle Mermaid diagrams
   if (language === 'mermaid') {
-    return <MermaidDiagram code={codeContent} />
+    return <MermaidDiagram code={codeContent} allowAddToNotes={allowAddToNotes} />
   }
 
   // Force inline style for actual inline code OR short snippets
@@ -722,12 +733,12 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
     return (
       <div className="relative group my-4 inline-block max-w-full align-middle w-full" data-code={encodeURIComponent(codeContent)} data-language={language || ''}>
          <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-             <button
-            onClick={handleCopy}
-            className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded shadow-sm hover:bg-primary/90 transition-colors"
-          >
-            {copied ? 'COPIED' : 'COPY'}
-          </button>
+            <button
+              onClick={handleCopy}
+              className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded shadow-sm hover:bg-primary/90 transition-colors"
+            >
+              {copied ? 'COPIED' : 'COPY'}
+            </button>
         </div>
         <code className={`block ${className} bg-zinc-50 dark:bg-[#0d1117] px-4 py-3 rounded-lg border border-border dark:border-white/10 shadow-sm font-mono text-sm leading-relaxed overflow-x-auto custom-scrollbar whitespace-pre-wrap break-words placeholder:break-all text-zinc-900 dark:text-zinc-100`} {...props}>
           {codeContent}
@@ -752,6 +763,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {allowAddToNotes && (
            <button
              onClick={() => {
                const firstLine = codeContent.split('\n')[0].trim()
@@ -769,6 +781,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
              <PenLine className="h-3 w-3" />
              <span className="uppercase text-[10px] font-bold tracking-wider">Notes</span>
            </button>
+          )}
           <button
             onClick={handleCopy}
             className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 px-2 py-1 rounded hover:bg-zinc-200 dark:hover:bg-white/5"

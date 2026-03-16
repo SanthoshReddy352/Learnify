@@ -20,6 +20,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import React from 'react'
 import MarkdownComponents from '@/components/sub-components/MarkdownComponents'
+import CodeBlock from '@/components/sub-components/CodeBlock'
 import { sanitizeLatex } from '@/lib/latexToUnicode'
 import GraphVisualizer from '@/components/GraphVisualizer'
 import RecommendationWidget from '@/components/RecommendationWidget'
@@ -79,6 +80,17 @@ async function exportBlob({ blob, filename, title, mimeType }) {
 
 const noteMarkdownComponents = {
   ...MarkdownComponents,
+  code: ({ node, inline, className, children, ...props }) => (
+    <CodeBlock
+      node={node}
+      inline={inline}
+      className={className}
+      allowAddToNotes={false}
+      {...props}
+    >
+      {children}
+    </CodeBlock>
+  ),
   blockquote: ({ node, ...props }) => {
     let color = 'blue'
     let found = false

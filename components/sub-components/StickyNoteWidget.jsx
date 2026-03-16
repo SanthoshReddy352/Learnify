@@ -8,7 +8,186 @@ import { saveTopicNotes } from '@/lib/actions'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import CodeBlock from './CodeBlock'
+import CodeBlock, { cleanCodeContent, parseMermaidTitle, parseMermaidDescription } from './CodeBlock'
+
+const FENCED_BLOCK_REGEX = /```([^\n`]*)\n([\s\S]*?)```/g
+
+const summarizeMaskedBlock = (language, code) => {
+  const normalizedLanguage = String(language || '').trim().toLowerCase()
+
+  if (normalizedLanguage === 'mermaid') {
+    const title = parseMermaidTitle(code) || 'Diagram'
+    const description = parseMermaidDescription(code) || 'Rendered in preview.'
+
+    return {
+      badge: 'DIAGRAM',
+      title,
+      description
+    }
+  }
+
+  const firstMeaningfulLine = code
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean) || 'Rendered in preview.'
+
+  return {
+    badge: normalizedLanguage ? normalizedLanguage.toUpperCase() : 'CODE',
+    title: normalizedLanguage ? `${normalizedLanguage.toUpperCase()} block` : 'Code block',
+    description: firstMeaningfulLine.length > 120
+      ? `${firstMeaningfulLine.slice(0, 117)}...`
+      : firstMeaningfulLine
+  }
+}
+
+const parseNoteSegments = (content = '') => {
+  const segments = []
+  let lastIndex = 0
+  let match
+
+  FENCED_BLOCK_REGEX.lastIndex = 0
+
+  while ((match = FENCED_BLOCK_REGEX.exec(content)) !== null) {
+    if (match.index > lastIndex || segments.length === 0 || segments[segments.length - 1]?.type === 'block') {
+      segments.push({
+        type: 'text',
+        value: content.slice(lastIndex, match.index)
+      })
+    }
+
+    const language = match[1].trim()
+    const code = cleanCodeContent(match[2] || '')
+
+    segments.push({
+      type: 'block',
+      value: match[0],
+      language,
+      code,
+      ...summarizeMaskedBlock(language, code)
+    })
+
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < content.length || segments.length === 0 || segments[segments.length - 1]?.type === 'block') {
+    segments.push({
+      type: 'text',
+      value: content.slice(lastIndex)
+    })
+  }
+
+  return segments
+}
+
+const normalizeNoteSegments = (segments) => {
+  const normalizedSegments = segments.map((segment) => ({ ...segment }))
+
+  for (let index = 0; index < normalizedSegments.length; index += 1) {
+    const segment = normalizedSegments[index]
+    if (segment.type !== 'block') {
+      continue
+    }
+
+    const previousSegment = normalizedSegments[index - 1]
+    if (previousSegment?.type === 'text' && /\S/.test(previousSegment.value) && !previousSegment.value.endsWith('\n\n')) {
+      previousSegment.value = previousSegment.value.endsWith('\n')
+        ? `${previousSegment.value}\n`
+        : `${previousSegment.value}\n\n`
+    }
+
+    const nextSegment = normalizedSegments[index + 1]
+    if (nextSegment?.type === 'text' && /\S/.test(nextSegment.value) && !nextSegment.value.startsWith('\n\n')) {
+      nextSegment.value = nextSegment.value.startsWith('\n')
+        ? `\n${nextSegment.value}`
+        : `\n\n${nextSegment.value}`
+    }
+  }
+
+  return normalizedSegments
+}
+
+const stringifyNoteSegments = (segments) => normalizeNoteSegments(segments).map((segment) => segment.value).join('')
+
+const findLastTextSegmentIndex = (segments) => {
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    if (segments[index].type === 'text') {
+      return index
+    }
+  }
+
+  return -1
+}
+
+const NotesPreviewBlockquote = ({ node, ...props }) => {
+  let color = 'blue'
+  let found = false
+
+  const processChildren = (children) => React.Children.map(children, (child) => {
+    if (typeof child === 'string') {
+      if (!found) {
+        const match = child.match(/^\[(blue|green|purple|amber|rose)\]\s*/)
+        if (match) {
+          color = match[1]
+          found = true
+          return child.replace(match[0], '')
+        }
+      }
+      return child
+    }
+
+    if (React.isValidElement(child) && child.props && child.props.children) {
+      return React.cloneElement(child, {
+        children: processChildren(child.props.children)
+      })
+    }
+
+    return child
+  })
+
+  const modifiedChildren = processChildren(props.children)
+  const colorThemes = {
+    blue: { border: 'border-blue-500', bg: 'from-blue-500/10', shine: 'via-blue-400/10' },
+    green: { border: 'border-emerald-500', bg: 'from-emerald-500/10', shine: 'via-emerald-400/10' },
+    purple: { border: 'border-purple-500', bg: 'from-purple-500/10', shine: 'via-purple-400/10' },
+    amber: { border: 'border-amber-500', bg: 'from-amber-500/10', shine: 'via-amber-400/10' },
+    rose: { border: 'border-rose-500', bg: 'from-rose-500/10', shine: 'via-rose-400/10' }
+  }
+  const theme = colorThemes[color] || colorThemes.blue
+
+  return (
+    <blockquote className={`not-prose relative my-4 overflow-hidden rounded-r-lg border-l-4 bg-gradient-to-r py-3 pl-4 pr-4 italic text-slate-700 shadow-sm group dark:text-slate-300 ${theme.border} ${theme.bg} to-transparent`}>
+      <div className={`absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent ${theme.shine} to-transparent group-hover:animate-[shimmer_2s_infinite]`} />
+      <div className="relative z-10">
+        {modifiedChildren}
+      </div>
+    </blockquote>
+  )
+}
+
+const NotesPreviewCode = ({ node, inline, className, children, ...props }) => (
+  <CodeBlock
+    node={node}
+    inline={inline}
+    className={className}
+    allowAddToNotes={false}
+    {...props}
+  >
+    {children}
+  </CodeBlock>
+)
+
+const NOTE_PREVIEW_COMPONENTS = {
+  blockquote: NotesPreviewBlockquote,
+  input: ({ node, ...props }) => (
+    <input {...props} className="mr-2 accent-blue-500" />
+  ),
+  code: NotesPreviewCode,
+  pre: ({ node, children, ...props }) => (
+    <div className="my-3" {...props}>
+      {children}
+    </div>
+  )
+}
 
 export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitle, onSaveNotes = null }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -20,13 +199,18 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
   const [isPreparingMic, setIsPreparingMic] = useState(false)
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
   const [isPreview, setIsPreview] = useState(false)
+  const [expandedRawBlocks, setExpandedRawBlocks] = useState({})
   const recognitionRef = useRef(null)
   const textareaRef = useRef(null)
+  const segmentedTextareaRefs = useRef({})
   const shouldKeepRecordingRef = useRef(false)
   const recordingTimeoutRef = useRef(null)
   const restartTimeoutRef = useRef(null)
   const isRecognitionStartingRef = useRef(false)
   const microphoneStreamRef = useRef(null)
+  const activeTextSegmentRef = useRef(0)
+  const editorSegments = parseNoteSegments(notes)
+  const hasMaskedBlocks = editorSegments.some((segment) => segment.type === 'block')
 
   const handleSave = useCallback(async (currentNotes) => {
     setIsSaving(true)
@@ -68,6 +252,61 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       setSaveStatus('saved')
     }
   }, [initialNotes])
+
+  const updateNotesFromSegments = useCallback((segments) => {
+    setNotes(stringifyNoteSegments(segments))
+    setSaveStatus('saving')
+  }, [])
+
+  const updateTextSegment = useCallback((segmentIndex, value) => {
+    const segments = parseNoteSegments(notes)
+    if (!segments[segmentIndex] || segments[segmentIndex].type !== 'text') {
+      return
+    }
+
+    segments[segmentIndex] = {
+      ...segments[segmentIndex],
+      value
+    }
+
+    updateNotesFromSegments(segments)
+  }, [notes, updateNotesFromSegments])
+
+  const updateBlockSegment = useCallback((segmentIndex, value) => {
+    const segments = parseNoteSegments(notes)
+    if (!segments[segmentIndex] || segments[segmentIndex].type !== 'block') {
+      return
+    }
+
+    const blockMatch = value.match(/^```([^\n`]*)\n([\s\S]*?)```$/)
+    const language = blockMatch ? blockMatch[1].trim() : segments[segmentIndex].language
+    const code = blockMatch ? cleanCodeContent(blockMatch[2] || '') : segments[segmentIndex].code
+
+    segments[segmentIndex] = {
+      ...segments[segmentIndex],
+      value,
+      language,
+      code,
+      ...summarizeMaskedBlock(language, code)
+    }
+
+    updateNotesFromSegments(segments)
+  }, [notes, updateNotesFromSegments])
+
+  const focusSegmentEditor = useCallback((segmentIndex, caretPosition) => {
+    window.setTimeout(() => {
+      const textarea = segmentedTextareaRefs.current[segmentIndex]
+      if (!textarea) {
+        return
+      }
+
+      textarea.focus()
+      if (typeof caretPosition === 'number') {
+        textarea.selectionStart = caretPosition
+        textarea.selectionEnd = caretPosition
+      }
+    }, 0)
+  }, [])
 
   const releaseMicrophone = useCallback(() => {
     if (microphoneStreamRef.current) {
@@ -149,7 +388,11 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
 
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         stopRecording()
-        toast.error('Microphone permission was denied.')
+        toast.error(
+          Capacitor.isNativePlatform()
+            ? 'Voice recognition is unavailable or blocked on this device.'
+            : 'Microphone permission was denied.'
+        )
         return
       }
 
@@ -227,8 +470,32 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
   }, [])
 
   const ensureMicrophoneAccess = useCallback(async () => {
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    if (typeof navigator === 'undefined') {
       return true
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      return true
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return true
+    }
+
+    if (navigator.permissions?.query) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'microphone' })
+        if (permissionStatus.state === 'granted') {
+          return true
+        }
+
+        if (permissionStatus.state === 'denied') {
+          toast.error('Allow microphone access in your browser to use voice notes.')
+          return false
+        }
+      } catch (permissionError) {
+        console.warn('Unable to query microphone permission state', permissionError)
+      }
     }
 
     try {
@@ -298,13 +565,49 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
   }
 
   const insertAtCursor = (text) => {
-    const textarea = textareaRef.current
-    if (!textarea) return
+    if (!hasMaskedBlocks) {
+      const textarea = textareaRef.current
+      if (!textarea) return
 
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const prefix = notes.substring(0, start)
-    const suffix = notes.substring(end)
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const prefix = notes.substring(0, start)
+      const suffix = notes.substring(end)
+      let formattedText = text
+
+      if (['- ', 'Important: ', 'Idea: '].includes(text)) {
+        const needsNewLine = prefix.length > 0 && !prefix.endsWith('\n')
+        formattedText = `${needsNewLine ? '\n' : ''}${text}`
+      }
+
+      const newNotes = prefix + formattedText + suffix
+      setNotes(newNotes)
+      setSaveStatus('saving')
+
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + formattedText.length
+        textarea.focus()
+      }, 0)
+      return
+    }
+
+    const segments = parseNoteSegments(notes)
+    let targetIndex = activeTextSegmentRef.current
+
+    if (!segments[targetIndex] || segments[targetIndex].type !== 'text') {
+      targetIndex = findLastTextSegmentIndex(segments)
+    }
+
+    if (targetIndex === -1) {
+      return
+    }
+
+    const targetSegment = segments[targetIndex]
+    const textarea = segmentedTextareaRefs.current[targetIndex]
+    const start = textarea ? textarea.selectionStart : targetSegment.value.length
+    const end = textarea ? textarea.selectionEnd : targetSegment.value.length
+    const prefix = targetSegment.value.substring(0, start)
+    const suffix = targetSegment.value.substring(end)
     let formattedText = text
 
     if (['- ', 'Important: ', 'Idea: '].includes(text)) {
@@ -312,14 +615,14 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       formattedText = `${needsNewLine ? '\n' : ''}${text}`
     }
 
-    const newNotes = prefix + formattedText + suffix
-    setNotes(newNotes)
-    setSaveStatus('saving')
+    segments[targetIndex] = {
+      ...targetSegment,
+      value: prefix + formattedText + suffix
+    }
 
-    setTimeout(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + formattedText.length
-      textarea.focus()
-    }, 0)
+    activeTextSegmentRef.current = targetIndex
+    updateNotesFromSegments(segments)
+    focusSegmentEditor(targetIndex, start + formattedText.length)
   }
 
   const handleManualSave = () => {
@@ -449,62 +752,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                 {notes ? (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
-                    components={{
-                      blockquote: ({ node, ...props }) => {
-                        let color = 'blue'
-                        let found = false
-
-                        const processChildren = (children) => React.Children.map(children, (child) => {
-                          if (typeof child === 'string') {
-                            if (!found) {
-                              const match = child.match(/^\[(blue|green|purple|amber|rose)\]\s*/)
-                              if (match) {
-                                color = match[1]
-                                found = true
-                                return child.replace(match[0], '')
-                              }
-                            }
-                            return child
-                          }
-
-                          if (React.isValidElement(child) && child.props && child.props.children) {
-                            return React.cloneElement(child, {
-                              children: processChildren(child.props.children)
-                            })
-                          }
-
-                          return child
-                        })
-
-                        const modifiedChildren = processChildren(props.children)
-                        const colorThemes = {
-                          blue: { border: 'border-blue-500', bg: 'from-blue-500/10', shine: 'via-blue-400/10' },
-                          green: { border: 'border-emerald-500', bg: 'from-emerald-500/10', shine: 'via-emerald-400/10' },
-                          purple: { border: 'border-purple-500', bg: 'from-purple-500/10', shine: 'via-purple-400/10' },
-                          amber: { border: 'border-amber-500', bg: 'from-amber-500/10', shine: 'via-amber-400/10' },
-                          rose: { border: 'border-rose-500', bg: 'from-rose-500/10', shine: 'via-rose-400/10' }
-                        }
-                        const theme = colorThemes[color] || colorThemes.blue
-
-                        return (
-                          <blockquote className={`not-prose relative my-4 overflow-hidden rounded-r-lg border-l-4 bg-gradient-to-r py-3 pl-4 pr-4 italic text-slate-700 shadow-sm group dark:text-slate-300 ${theme.border} ${theme.bg} to-transparent`}>
-                            <div className={`absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent ${theme.shine} to-transparent group-hover:animate-[shimmer_2s_infinite]`} />
-                            <div className="relative z-10">
-                              {modifiedChildren}
-                            </div>
-                          </blockquote>
-                        )
-                      },
-                      input: ({ node, ...props }) => (
-                        <input {...props} className="mr-2 accent-blue-500" />
-                      ),
-                      code: CodeBlock,
-                      pre: ({ node, children, ...props }) => (
-                        <div className="my-3" {...props}>
-                          {children}
-                        </div>
-                      )
-                    }}
+                    components={NOTE_PREVIEW_COMPONENTS}
                   >
                     {notes}
                   </ReactMarkdown>
@@ -513,18 +761,103 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                 )}
               </div>
             ) : (
-              <textarea
-                ref={textareaRef}
-                className="relative z-10 h-full w-full resize-none border-none bg-transparent p-5 leading-[26px] text-slate-800 placeholder:text-slate-400/60 focus:outline-none focus:ring-0 scroll-smooth selection:bg-blue-500/20 dark:text-slate-200 dark:placeholder:text-slate-500/50"
-                style={{ fontFamily: "'Virgil', cursive" }}
-                placeholder="Jot down your learner notes here... Markdown is supported!"
-                value={notes}
-                onChange={(event) => {
-                  setNotes(event.target.value)
-                  setSaveStatus('saving')
-                }}
-                spellCheck="false"
-              />
+              hasMaskedBlocks ? (
+                <div className="relative z-10 flex h-full flex-col gap-3 overflow-y-auto p-4">
+                  {editorSegments.map((segment, index) => (
+                    segment.type === 'block' ? (
+                      <div
+                        key={`block-${index}`}
+                        className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/70"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600/80 dark:text-blue-300/80">
+                              {segment.badge}
+                            </p>
+                            <h4 className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                              {segment.title}
+                            </h4>
+                            <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                              {segment.description}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setExpandedRawBlocks((previous) => ({
+                                ...previous,
+                                [index]: !previous[index]
+                              }))
+                            }}
+                            className="h-7 shrink-0 rounded-full px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                          >
+                            {expandedRawBlocks[index] ? 'Mask' : 'Raw'}
+                          </Button>
+                        </div>
+                        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                          This block stays rendered in Preview. Open Raw only if you need to edit the underlying markdown.
+                        </p>
+
+                        {expandedRawBlocks[index] && (
+                          <textarea
+                            className="mt-3 min-h-[160px] w-full resize-y rounded-xl border border-slate-200 bg-white/90 p-3 font-mono text-xs leading-6 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-100"
+                            value={segment.value}
+                            onChange={(event) => updateBlockSegment(index, event.target.value)}
+                            spellCheck={false}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <textarea
+                        key={`text-${index}`}
+                        ref={(node) => {
+                          if (node) {
+                            segmentedTextareaRefs.current[index] = node
+                          } else {
+                            delete segmentedTextareaRefs.current[index]
+                          }
+                        }}
+                        className="w-full resize-y rounded-2xl border border-slate-200/70 bg-transparent px-4 py-3 leading-[26px] text-slate-800 placeholder:text-slate-400/60 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700/60 dark:text-slate-200 dark:placeholder:text-slate-500/50"
+                        style={{
+                          fontFamily: "'Virgil', cursive",
+                          minHeight: segment.value.trim() ? `${Math.min(280, Math.max(92, (segment.value.split('\n').length + 1) * 26))}px` : '92px'
+                        }}
+                        placeholder={index === 0 ? 'Jot down your learner notes here... Markdown is supported!' : 'Continue writing...'}
+                        value={segment.value}
+                        onFocus={() => {
+                          activeTextSegmentRef.current = index
+                        }}
+                        onClick={() => {
+                          activeTextSegmentRef.current = index
+                        }}
+                        onKeyUp={() => {
+                          activeTextSegmentRef.current = index
+                        }}
+                        onChange={(event) => {
+                          activeTextSegmentRef.current = index
+                          updateTextSegment(index, event.target.value)
+                        }}
+                        spellCheck={false}
+                      />
+                    )
+                  ))}
+                </div>
+              ) : (
+                <textarea
+                  ref={textareaRef}
+                  className="relative z-10 h-full w-full resize-none border-none bg-transparent p-5 leading-[26px] text-slate-800 placeholder:text-slate-400/60 focus:outline-none focus:ring-0 scroll-smooth selection:bg-blue-500/20 dark:text-slate-200 dark:placeholder:text-slate-500/50"
+                  style={{ fontFamily: "'Virgil', cursive" }}
+                  placeholder="Jot down your learner notes here... Markdown is supported!"
+                  value={notes}
+                  onChange={(event) => {
+                    setNotes(event.target.value)
+                    setSaveStatus('saving')
+                  }}
+                  spellCheck={false}
+                />
+              )
             )}
           </div>
 
