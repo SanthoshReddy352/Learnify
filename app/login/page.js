@@ -107,7 +107,7 @@ function LoginContent() {
       provider,
       options: {
         redirectTo: redirectUrl,
-        skipBrowserRedirect: true,
+        skipBrowserRedirect: Capacitor.isNativePlatform(),
       },
     })
 

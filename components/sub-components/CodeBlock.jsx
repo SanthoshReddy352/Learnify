@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useId, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
+import { Check, X, ZoomIn, ZoomOut, RotateCcw, PenLine, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 export const cleanCodeContent = (content) => {
   let cleaned = String(content).replace(/\n$/, '')
@@ -611,7 +612,20 @@ const MermaidDiagram = ({ code }) => {
   }, [code, uniqueId, theme]) // Added theme dependency
 
   if (error) {
-    return null
+    return (
+      <div className="my-8 p-4 border border-red-500/50 bg-red-500/10 text-red-500 rounded-lg text-xs font-mono whitespace-pre-wrap">
+        Error rendering diagram: {error}
+      </div>
+    )
+  }
+
+  if (!svg) {
+    return (
+      <div className="my-8 p-4 border border-border shadow-lg rounded-xl flex items-center justify-center bg-card text-muted-foreground text-sm">
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        Rendering diagram...
+      </div>
+    )
   }
 
   return (
@@ -629,9 +643,26 @@ const MermaidDiagram = ({ code }) => {
                 {diagramTitle || 'Diagram'}
               </span>
             </div>
-            <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const markdown = `\`\`\`mermaid\n${code}\n\`\`\``
+                  window.dispatchEvent(new CustomEvent('add-highlight-to-notes', {
+                    detail: { text: markdown, color: 'purple' }
+                  }))
+                  toast.success('📝 Diagram added to notes!')
+                }}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-primary/10 z-10"
+                title="Add to Notes"
+              >
+                <PenLine className="h-3 w-3" />
+                <span className="hidden sm:inline">Notes</span>
+              </button>
+              <span className="text-xs text-muted-foreground shrink-0">
               Click to expand
             </span>
+            </div>
           </div>
           {/* Diagram Content */}
           <div 
@@ -721,6 +752,23 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
           )}
         </div>
         <div className="flex items-center gap-2">
+           <button
+             onClick={() => {
+               const firstLine = codeContent.split('\n')[0].trim()
+               const preview = firstLine.length > 50 ? firstLine.slice(0, 50) + '...' : firstLine
+               const lang = language ? ` (${language})` : ''
+               const noteText = `💻 **Code${lang}:** \`${preview}\``
+               window.dispatchEvent(new CustomEvent('add-highlight-to-notes', {
+                 detail: { text: noteText, color: 'blue' }
+               }))
+               toast.success('📝 Code saved to notes!')
+             }}
+             className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 px-2 py-1 rounded hover:bg-zinc-200 dark:hover:bg-white/5"
+             title="Add to Notes"
+           >
+             <PenLine className="h-3 w-3" />
+             <span className="uppercase text-[10px] font-bold tracking-wider">Notes</span>
+           </button>
           <button
             onClick={handleCopy}
             className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 px-2 py-1 rounded hover:bg-zinc-200 dark:hover:bg-white/5"

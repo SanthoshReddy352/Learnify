@@ -11,6 +11,7 @@ export function GlobalNavigation({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
   const isLandingPage = pathname === '/'
+  const isLearnPage = pathname.startsWith('/learn/')
 
   // Collapse sidebar on route change (mobile only)
   useEffect(() => {
@@ -26,6 +27,15 @@ export function GlobalNavigation({ children }) {
         <main className="flex-1 w-full animate-in fade-in duration-500 pt-[calc(7rem+env(safe-area-inset-top))] px-4 md:px-8 pb-8">
           {children}
         </main>
+      </div>
+    )
+  }
+
+  // Learn page: full immersive view, no sidebar or header
+  if (isLearnPage) {
+    return (
+      <div className="min-h-screen bg-background selection:bg-primary/20 selection:text-primary">
+        {children}
       </div>
     )
   }

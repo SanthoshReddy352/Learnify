@@ -9,10 +9,14 @@ export async function GET(request) {
 
   if (code) {
     const supabase = await createClient()
-    await supabase.auth.exchangeCodeForSession(code)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      await claimPendingInvitesForUser(supabase, user)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) {
+      console.error('OAuth Code Exchange Error:', error)
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await claimPendingInvitesForUser(supabase, user)
+      }
     }
   }
 

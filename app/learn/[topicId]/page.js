@@ -432,7 +432,7 @@ export default function LearnPage() {
       </div>
 
       {/* Content */}
-      <div className="container mx-auto px-4 md:px-6 pt-[calc(140px+env(safe-area-inset-top))] md:pt-[calc(160px+env(safe-area-inset-top))] pb-[calc(3rem+env(safe-area-inset-bottom))] max-w-4xl">
+      <div className="container mx-auto px-4 md:px-6 pt-[calc(120px+env(safe-area-inset-top))] md:pt-[calc(140px+env(safe-area-inset-top))] pb-[calc(3rem+env(safe-area-inset-bottom))] max-w-4xl">
         <Card className="glass-card mb-8">
           <CardHeader>
             <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">{topic.title}</CardTitle>

@@ -126,7 +126,7 @@ export default function Dashboard() {
     setAnalytics({
       totalMinutes: globalStats.totalMinutes,
       subjectStats: globalStats.subjectStats,
-      weeklyData: weeklyStats.weekData,
+      weeklyData: weeklyStats?.weekData || [],
       dueReviews: dueReviews
     })
   }
@@ -531,7 +531,7 @@ export default function Dashboard() {
                         + {analytics.subjectStats.length - 3} more subjects
                       </p>
                     )}
-                    {analytics.subjectStats.length === 0 && (
+                    {(analytics.subjectStats || []).length === 0 && (
                       <p className="text-xs text-muted-foreground">No progress yet.</p>
                     )}
                  </CardContent>

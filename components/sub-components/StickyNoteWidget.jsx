@@ -8,6 +8,7 @@ import { saveTopicNotes } from '@/lib/actions'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import CodeBlock from './CodeBlock'
 
 export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitle, onSaveNotes = null }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -38,6 +39,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
 
       if (result.success) {
         setSaveStatus('saved')
+        toast.success('✅ Notes saved!', { id: 'notes-saved', duration: 2000 })
       } else {
         setSaveStatus('error')
         toast.error(`Failed to save notes: ${result.error}`)
@@ -111,7 +113,8 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
     }
 
     const recognition = new SpeechRecognition()
-    recognition.continuous = true
+    const isNative = Capacitor.isNativePlatform()
+    recognition.continuous = !isNative // Non-continuous on Android native for stability
     recognition.interimResults = true
     recognition.maxAlternatives = 1
     recognition.lang = 'en-US'
@@ -174,6 +177,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
         return
       }
 
+      // On Android (non-continuous mode), restart automatically to keep recording
       restartTimeoutRef.current = window.setTimeout(() => {
         if (!recognitionRef.current || !shouldKeepRecordingRef.current) {
           return
@@ -185,9 +189,9 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
         } catch (restartError) {
           console.error('Speech recognition restart failed', restartError)
           stopRecording()
-          toast.error('Could not continue voice recording.')
+          toast.error('Voice recording ended unexpectedly.')
         }
-      }, 250)
+      }, 300)
     }
 
     recognitionRef.current = recognition
@@ -207,7 +211,11 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       const { text, color = 'blue' } = event.detail
       setNotes((previous) => {
         const spacer = previous.endsWith('\n\n') ? '' : (previous ? '\n\n' : '')
-        const newNotes = `${previous}${spacer}> [${color}] ${text}\n\n`
+        // Do not wrap code blocks/mermaid diagrams in blockquotes
+        const isCodeBlock = text.startsWith('```')
+        const newNotes = isCodeBlock 
+          ? `${previous}${spacer}${text}\n\n`
+          : `${previous}${spacer}> [${color}] ${text}\n\n`
         setSaveStatus('saving')
         return newNotes
       })
@@ -244,6 +252,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
   const toggleRecording = async () => {
     if (isRecording) {
       stopRecording()
+      toast.info('⏹️ Recording stopped.')
       return
     }
 
@@ -257,7 +266,9 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
     }
 
     setIsPreparingMic(true)
+    toast.loading('Preparing microphone...', { id: 'mic-prep' })
     const microphoneReady = await ensureMicrophoneAccess()
+    toast.dismiss('mic-prep')
     if (!microphoneReady) {
       setIsPreparingMic(false)
       return
@@ -269,7 +280,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       recognitionRef.current.start()
       setIsRecording(true)
       setIsPreparingMic(false)
-      toast.success('Recording started')
+      toast.success('🎙️ Recording started — speak now!')
 
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current)
@@ -320,7 +331,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       {!isOpen && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-4 md:bottom-28 md:right-8 h-14 w-14 rounded-full border border-slate-300/50 bg-slate-200 text-blue-600 shadow-2xl transition-transform hover:scale-105 hover:bg-slate-300 active:scale-95 dark:border-slate-700/50 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700 z-[105]"
+          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 md:bottom-[6.5rem] md:right-8 h-14 w-14 rounded-full border border-slate-300/50 bg-slate-200 text-blue-600 shadow-2xl transition-transform hover:scale-105 hover:bg-slate-300 active:scale-95 dark:border-slate-700/50 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700 z-[105]"
           aria-label="Open Notes"
         >
           <PenLine className="h-6 w-6" />
@@ -328,7 +339,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       )}
 
       {isOpen && (
-        <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-4 md:bottom-28 md:right-8 h-[min(60vh,450px)] w-[min(22rem,calc(100vw-2rem))] md:w-[400px] z-[105] flex flex-col overflow-hidden rounded-xl border border-slate-200/50 shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 dark:border-slate-700/50">
+        <div className="fixed inset-x-0 bottom-0 md:inset-x-auto md:bottom-8 md:right-8 h-[70vh] md:h-[min(60vh,450px)] w-full md:w-[400px] z-[110] flex flex-col overflow-hidden rounded-t-2xl md:rounded-xl border border-slate-200/50 shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 dark:border-slate-700/50">
           <div className="z-10 flex items-center justify-between border-b border-slate-200/80 bg-slate-100 px-4 py-3 text-slate-800 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
             <div className="flex items-center gap-2 font-semibold text-blue-600 dark:text-blue-400">
               <PenLine className="h-4 w-4" />
@@ -372,17 +383,17 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                 <Button variant="ghost" size="icon" onClick={() => insertAtCursor('- [ ] ')} className="h-7 w-7 shrink-0 rounded text-slate-600 hover:bg-blue-100 hover:text-blue-600 dark:text-slate-300 dark:hover:bg-blue-900/30 dark:hover:text-blue-400" title="Checkbox">
                   <CheckSquare className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => insertAtCursor('Reminder: ')} className="h-7 w-7 shrink-0 rounded text-slate-600 hover:bg-blue-100 hover:text-blue-600 dark:text-slate-300 dark:hover:bg-blue-900/30 dark:hover:text-blue-400" title="Reminder">
+                <Button variant="ghost" size="icon" onClick={() => insertAtCursor('⏰ Reminder: ')} className="h-7 w-7 shrink-0 rounded text-slate-600 hover:bg-blue-100 hover:text-blue-600 dark:text-slate-300 dark:hover:bg-blue-900/30 dark:hover:text-blue-400" title="Reminder">
                   <Clock className="h-4 w-4" />
                 </Button>
                 <div className="mx-1 h-4 w-px shrink-0 self-center bg-slate-300 dark:bg-slate-600" />
                 <Button variant="ghost" size="icon" onClick={() => insertAtCursor('- ')} className="h-7 w-7 shrink-0 rounded text-slate-600 hover:bg-blue-100 hover:text-blue-600 dark:text-slate-300 dark:hover:bg-blue-900/30 dark:hover:text-blue-400" title="Bullet Point">
                   <List className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => insertAtCursor('Important: ')} className="h-7 w-7 shrink-0 rounded text-slate-600 hover:bg-blue-100 hover:text-blue-600 dark:text-slate-300 dark:hover:bg-blue-900/30 dark:hover:text-blue-400" title="Important">
+                <Button variant="ghost" size="icon" onClick={() => insertAtCursor('⚠️ Important: ')} className="h-7 w-7 shrink-0 rounded text-slate-600 hover:bg-blue-100 hover:text-blue-600 dark:text-slate-300 dark:hover:bg-blue-900/30 dark:hover:text-blue-400" title="Important">
                   <AlertCircle className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => insertAtCursor('Idea: ')} className="h-7 w-7 shrink-0 rounded text-slate-600 hover:bg-blue-100 hover:text-blue-600 dark:text-slate-300 dark:hover:bg-blue-900/30 dark:hover:text-blue-400" title="Idea">
+                <Button variant="ghost" size="icon" onClick={() => insertAtCursor('💡 Idea: ')} className="h-7 w-7 shrink-0 rounded text-slate-600 hover:bg-blue-100 hover:text-blue-600 dark:text-slate-300 dark:hover:bg-blue-900/30 dark:hover:text-blue-400" title="Idea">
                   <Lightbulb className="h-4 w-4" />
                 </Button>
               </div>
@@ -434,7 +445,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
 
           <div className="relative flex flex-1 flex-col overflow-hidden bg-white dark:bg-[#1a1c23]">
             {isPreview ? (
-              <div className="prose max-w-none flex-1 overflow-y-auto p-5 text-sm leading-relaxed scroll-smooth prose-p:text-slate-700 prose-headings:text-slate-800 prose-a:text-blue-600 dark:prose-invert dark:prose-p:text-slate-300 dark:prose-headings:text-slate-100 dark:prose-a:text-blue-400">
+              <div className="prose max-w-none flex-1 overflow-y-auto p-5 text-sm leading-relaxed scroll-smooth prose-p:text-slate-700 prose-headings:text-slate-800 prose-a:text-blue-600 dark:prose-invert dark:prose-p:text-slate-300 dark:prose-headings:text-slate-100 dark:prose-a:text-blue-400" style={{ fontFamily: "'Virgil', cursive" }}>
                 {notes ? (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
@@ -486,6 +497,12 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                       },
                       input: ({ node, ...props }) => (
                         <input {...props} className="mr-2 accent-blue-500" />
+                      ),
+                      code: CodeBlock,
+                      pre: ({ node, children, ...props }) => (
+                        <div className="my-3" {...props}>
+                          {children}
+                        </div>
                       )
                     }}
                   >
@@ -499,6 +516,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
               <textarea
                 ref={textareaRef}
                 className="relative z-10 h-full w-full resize-none border-none bg-transparent p-5 leading-[26px] text-slate-800 placeholder:text-slate-400/60 focus:outline-none focus:ring-0 scroll-smooth selection:bg-blue-500/20 dark:text-slate-200 dark:placeholder:text-slate-500/50"
+                style={{ fontFamily: "'Virgil', cursive" }}
                 placeholder="Jot down your learner notes here... Markdown is supported!"
                 value={notes}
                 onChange={(event) => {

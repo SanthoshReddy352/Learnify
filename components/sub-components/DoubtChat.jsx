@@ -133,7 +133,7 @@ export default function DoubtChat({
 
             {/* Chat Window */}
             {isOpen && (
-                <Card className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 w-[min(90vw,24rem)] md:w-[400px] h-[60vh] max-h-[600px] z-[100] flex flex-col shadow-2xl border-primary/20 animate-in slide-in-from-bottom-10 fade-in duration-300 overflow-hidden glass">
+                <Card className="fixed inset-x-0 bottom-0 md:inset-x-auto md:bottom-8 md:right-8 w-full md:w-[400px] h-[70vh] md:h-[60vh] md:max-h-[600px] z-[110] flex flex-col shadow-2xl border-primary/20 animate-in slide-in-from-bottom-10 fade-in duration-300 overflow-hidden glass rounded-t-2xl md:rounded-xl">
                     <CardHeader className="p-4 border-b border-white/10 bg-primary/5 flex flex-row items-center justify-between shrink-0">
                         <div className="flex items-center gap-2">
                             <div className="p-1.5 bg-primary/20 rounded-lg">

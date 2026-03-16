@@ -17,12 +17,12 @@ const extractMarkdown = (node) => {
 
   // Check custom data attributes first
   if (el.hasAttribute && el.hasAttribute('data-mermaid-code')) {
-    return `\n\`\`\`mermaid\n${decodeURIComponent(el.getAttribute('data-mermaid-code'))}\n\`\`\`\n`;
+    return `\`\`\`mermaid\n${decodeURIComponent(el.getAttribute('data-mermaid-code'))}\n\`\`\`\n`;
   }
   
   if (el.hasAttribute && el.hasAttribute('data-code')) {
     const lang = el.getAttribute('data-language') || '';
-    return `\n\`\`\`${lang}\n${decodeURIComponent(el.getAttribute('data-code'))}\n\`\`\`\n`;
+    return `\`\`\`${lang}\n${decodeURIComponent(el.getAttribute('data-code'))}\n\`\`\`\n`;
   }
 
   if (el.tagName === 'IMG') {

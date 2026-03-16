@@ -77,6 +77,63 @@ async function exportBlob({ blob, filename, title, mimeType }) {
   return true
 }
 
+const noteMarkdownComponents = {
+  ...MarkdownComponents,
+  blockquote: ({ node, ...props }) => {
+    let color = 'blue'
+    let found = false
+
+    const processChildren = (children) => {
+      return React.Children.map(children, child => {
+        if (typeof child === 'string') {
+          if (!found) {
+            const match = child.match(/^\[(blue|green|purple|amber|rose)\]\s*/)
+            if (match) {
+              color = match[1]
+              found = true
+              return child.replace(match[0], '')
+            }
+          }
+          return child
+        }
+
+        if (React.isValidElement(child) && child.props && child.props.children) {
+          return React.cloneElement(child, {
+            children: processChildren(child.props.children)
+          })
+        }
+
+        return child
+      })
+    }
+
+    const modifiedChildren = processChildren(props.children)
+
+    const hlThemes = {
+      blue: { border: 'border-blue-500', shadow: 'from-blue-500/10', shine: 'via-blue-400/10' },
+      green: { border: 'border-emerald-500', shadow: 'from-emerald-500/10', shine: 'via-emerald-400/10' },
+      purple: { border: 'border-purple-500', shadow: 'from-purple-500/10', shine: 'via-purple-400/10' },
+      amber: { border: 'border-amber-500', shadow: 'from-amber-500/10', shine: 'via-amber-400/10' },
+      rose: { border: 'border-rose-500', shadow: 'from-rose-500/10', shine: 'via-rose-400/10' }
+    }
+    const hlTheme = hlThemes[color] || hlThemes.blue
+
+    return (
+      <blockquote
+        className={`not-prose my-3 pl-4 py-2 pr-4 rounded-r block border-l-4 ${hlTheme.border} bg-gradient-to-r ${hlTheme.shadow} to-transparent italic text-slate-700 dark:text-slate-300 shadow-sm relative overflow-hidden`}
+      >
+        <div className={`absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent ${hlTheme.shine} to-transparent animate-[shimmer_3s_infinite] opacity-50`} />
+        <div className="relative z-10">
+          {modifiedChildren}
+        </div>
+      </blockquote>
+    )
+  },
+  input: ({ node, ...props }) => (
+    <input {...props} className="mr-2 accent-primary" />
+  )
+}
+
 export default function SubjectPage() {
   const router = useRouter()
   // ... rest of component
@@ -371,9 +428,9 @@ export default function SubjectPage() {
     ])
 
     setAnalytics({
-        weakTopics: weak,
-        weeklyData: stats.weekData,
-        totalMinutes: stats.totalMinutes
+        weakTopics: weak || [],
+        weeklyData: stats?.weekData || [],
+        totalMinutes: stats?.totalMinutes || 0
     })
   }
 
@@ -664,7 +721,7 @@ export default function SubjectPage() {
   const handleTabChange = (value) => {
     setCurrentTab(value) // Optimistic update
     localStorage.setItem(`subject_tab_${subjectId}`, value)
-    router.push(`/subjects/${subjectId}?tab=${value}`, { scroll: false })
+    window.history.replaceState(null, '', `/subjects/${subjectId}?tab=${value}`)
   }
 
   const handleTogglePublic = async (checked) => {
@@ -727,9 +784,9 @@ export default function SubjectPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background selection:bg-primary/20 selection:text-primary">
+    <div className="h-[calc(100vh-5rem)] md:h-[calc(100vh-7rem)] -mb-4 md:-mb-8 flex flex-col overflow-hidden bg-background selection:bg-primary/20 selection:text-primary">
       {/* Top Bar */}
-      <div className="border-b border-white/5 bg-background/80 backdrop-blur-md z-40 shrink-0 pt-[env(safe-area-inset-top)]">
+      <div className="border-b border-white/5 bg-background/80 backdrop-blur-md z-20 shrink-0 pt-[env(safe-area-inset-top)]">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 min-w-0">
@@ -891,7 +948,7 @@ export default function SubjectPage() {
       <div className="flex-1 overflow-hidden flex flex-col">
         <Tabs value={currentTab} onValueChange={handleTabChange} className="flex-1 flex flex-col overflow-hidden">
           <div className="container mx-auto px-6 pt-4 shrink-0">
-            <TabsList className="bg-white/5 border border-white/5 p-1 w-full sm:w-auto flex overflow-x-auto no-scrollbar justify-start">
+            <TabsList className="bg-white/5 border border-white/5 p-1 w-full sm:w-auto flex overflow-x-auto overflow-y-hidden no-scrollbar justify-start h-auto">
               <TabsTrigger value="overview" className="data-[state=active]:bg-background/50 shrink-0">Overview</TabsTrigger>
               <TabsTrigger value="graph" className="data-[state=active]:bg-background/50 shrink-0">Knowledge Graph</TabsTrigger>
               <TabsTrigger value="topics" className="data-[state=active]:bg-background/50 shrink-0">All Topics</TabsTrigger>
@@ -981,14 +1038,14 @@ export default function SubjectPage() {
 
 
                 {/* Weak Topics Widget - Show conditionally if there are weak topics */}
-                {analytics.weakTopics.length > 0 && (
+                {analytics.weakTopics?.length > 0 && (
                   <WeakTopicsWidget topics={analytics.weakTopics} />
                 )}
 
                 {/* Weekly Stats */}
                 <WeeklyStats 
-                    data={analytics.weeklyData} 
-                    totalMinutes={analytics.totalMinutes} 
+                    data={analytics.weeklyData || []} 
+                    totalMinutes={analytics.totalMinutes || 0} 
                 />
 
                 {/* Subject description */}
@@ -1146,12 +1203,12 @@ export default function SubjectPage() {
           {/* Notes Tab */}
           <TabsContent value="notes" className="flex-1 overflow-y-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] container mx-auto">
              <div className="flex flex-col gap-6 max-w-4xl mx-auto h-full">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
                    <div>
                      <h2 className="text-2xl font-bold tracking-tight">Compiled Notes</h2>
                      <p className="text-muted-foreground text-sm">All the sticky notes you&apos;ve taken across this subject&apos;s topics.</p>
                    </div>
-                   <Button onClick={handleDownloadNotes} variant="outline" className="glass hover:bg-white/5">
+                   <Button onClick={handleDownloadNotes} variant="outline" className="glass hover:bg-white/5 shrink-0 w-full sm:w-auto">
                      <Download className="mr-2 h-4 w-4" /> Download .md
                    </Button>
                 </div>
@@ -1200,65 +1257,13 @@ export default function SubjectPage() {
                                     </Button>
                                   </div>
 
-                                  <div className="prose dark:prose-invert prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-headings:text-slate-800 dark:prose-headings:text-slate-100 max-w-none text-sm leading-relaxed">
-                                      <ReactMarkdown 
-                                           remarkPlugins={[remarkGfm]}
-                                           components={{
-                                              blockquote: ({node, ...props}) => {
-                                                let color = 'blue';
-                                                let found = false;
-                                                
-                                                const processChildren = (children) => {
-                                                  return React.Children.map(children, child => {
-                                                    if (typeof child === 'string') {
-                                                      if (!found) {
-                                                        const match = child.match(/^\[(blue|green|purple|amber|rose)\]\s*/);
-                                                        if (match) {
-                                                          color = match[1];
-                                                          found = true;
-                                                          return child.replace(match[0], '');
-                                                        }
-                                                      }
-                                                      return child;
-                                                    }
-                                                    if (React.isValidElement(child) && child.props && child.props.children) {
-                                                      return React.cloneElement(child, {
-                                                        children: processChildren(child.props.children)
-                                                      });
-                                                    }
-                                                    return child;
-                                                  });
-                                                };
-                                                
-                                                const modifiedChildren = processChildren(props.children);
-
-                                                const hlThemes = {
-                                                  blue: { border: 'border-blue-500', shadow: 'from-blue-500/10', shine: 'via-blue-400/10' },
-                                                  green: { border: 'border-emerald-500', shadow: 'from-emerald-500/10', shine: 'via-emerald-400/10' },
-                                                  purple: { border: 'border-purple-500', shadow: 'from-purple-500/10', shine: 'via-purple-400/10' },
-                                                  amber: { border: 'border-amber-500', shadow: 'from-amber-500/10', shine: 'via-amber-400/10' },
-                                                  rose: { border: 'border-rose-500', shadow: 'from-rose-500/10', shine: 'via-rose-400/10' }
-                                                };
-                                                const hlTheme = hlThemes[color] || hlThemes.blue;
-
-                                                return (
-                                                  <blockquote 
-                                                    className={`not-prose my-3 pl-4 py-2 pr-4 rounded-r block border-l-4 ${hlTheme.border} bg-gradient-to-r ${hlTheme.shadow} to-transparent italic text-slate-700 dark:text-slate-300 shadow-sm relative overflow-hidden`} 
-                                                  >
-                                                     <div className={`absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent ${hlTheme.shine} to-transparent animate-[shimmer_3s_infinite] opacity-50`} />
-                                                     <div className="relative z-10">
-                                                       {modifiedChildren}
-                                                     </div>
-                                                  </blockquote>
-                                                )
-                                              },
-                                              input: ({node, ...props}) => (
-                                                <input {...props} className="mr-2 accent-primary" />
-                                              )
-                                           }}
-                                        >
-                                            {topic.user_notes}
-                                        </ReactMarkdown>
+                                   <div className="prose dark:prose-invert prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-headings:text-slate-800 dark:prose-headings:text-slate-100 max-w-none text-sm leading-relaxed" style={{ fontFamily: "'Virgil', cursive" }}>
+                                       <ReactMarkdown 
+                                            remarkPlugins={[remarkGfm]}
+                                            components={noteMarkdownComponents}
+                                         >
+                                             {topic.user_notes}
+                                         </ReactMarkdown>
                                   </div>
                                </div>
                             )
@@ -1273,18 +1278,18 @@ export default function SubjectPage() {
           {/* Cheat Sheet Tab */}
           <TabsContent value="cheatsheet" className="flex-1 overflow-y-auto p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] container mx-auto">
             <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
                  <div>
                    <h2 className="text-2xl font-bold tracking-tight">AI Cheat Sheet</h2>
                    <p className="text-muted-foreground text-sm">A condensed, high-yield study guide summarizing all topics.</p>
                  </div>
                  {subject?.cheat_sheet && (
-                   <div className="flex gap-2">
-                     <Button onClick={handleDownloadCheatSheetPDF} variant="outline" className="glass hover:bg-white/5">
+                   <div className="flex gap-2 w-full sm:w-auto">
+                     <Button onClick={handleDownloadCheatSheetPDF} variant="outline" className="glass hover:bg-white/5 flex-1 sm:flex-initial">
                        <Download className="mr-2 h-4 w-4" />
                        Download PDF
                      </Button>
-                     <Button onClick={handleGenerateCheatSheet} disabled={isGeneratingCheatSheet} variant="outline" className="glass hover:bg-white/5">
+                     <Button onClick={handleGenerateCheatSheet} disabled={isGeneratingCheatSheet} variant="outline" className="glass hover:bg-white/5 flex-1 sm:flex-initial">
                        {isGeneratingCheatSheet ? <RotateCw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                        Regenerate
                      </Button>
