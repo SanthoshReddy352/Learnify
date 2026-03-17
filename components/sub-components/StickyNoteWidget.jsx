@@ -79,32 +79,7 @@ const parseNoteSegments = (content = '') => {
   return segments
 }
 
-const normalizeNoteSegments = (segments) => {
-  const normalizedSegments = segments.map((segment) => ({ ...segment }))
-
-  for (let index = 0; index < normalizedSegments.length; index += 1) {
-    const segment = normalizedSegments[index]
-    if (segment.type !== 'block') {
-      continue
-    }
-
-    const previousSegment = normalizedSegments[index - 1]
-    if (previousSegment?.type === 'text' && /\S/.test(previousSegment.value) && !previousSegment.value.endsWith('\n\n')) {
-      previousSegment.value = previousSegment.value.endsWith('\n')
-        ? `${previousSegment.value}\n`
-        : `${previousSegment.value}\n\n`
-    }
-
-    const nextSegment = normalizedSegments[index + 1]
-    if (nextSegment?.type === 'text' && /\S/.test(nextSegment.value) && !nextSegment.value.startsWith('\n\n')) {
-      nextSegment.value = nextSegment.value.startsWith('\n')
-        ? `\n${nextSegment.value}`
-        : `\n\n${nextSegment.value}`
-    }
-  }
-
-  return normalizedSegments
-}
+const normalizeNoteSegments = (segments) => segments
 
 const stringifyNoteSegments = (segments) => normalizeNoteSegments(segments).map((segment) => segment.value).join('')
 
@@ -474,9 +449,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       return true
     }
 
-    if (Capacitor.isNativePlatform()) {
-      return true
-    }
+    // Allow getUserMedia to run on Capacitor to ensure WebView site permission and audio focus
 
     if (!navigator.mediaDevices?.getUserMedia) {
       return true
@@ -781,20 +754,35 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                               {segment.description}
                             </p>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setExpandedRawBlocks((previous) => ({
-                                ...previous,
-                                [index]: !previous[index]
-                              }))
-                            }}
-                            className="h-7 shrink-0 rounded-full px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                          >
-                            {expandedRawBlocks[index] ? 'Mask' : 'Raw'}
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const segments = parseNoteSegments(notes)
+                                segments.splice(index, 1)
+                                updateNotesFromSegments(segments)
+                              }}
+                              className="h-7 shrink-0 rounded-full px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-red-500 hover:bg-red-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300"
+                            >
+                              Remove
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setExpandedRawBlocks((previous) => ({
+                                  ...previous,
+                                  [index]: !previous[index]
+                                }))
+                              }}
+                              className="h-7 shrink-0 rounded-full px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                            >
+                              {expandedRawBlocks[index] ? 'Mask' : 'Raw'}
+                            </Button>
+                          </div>
                         </div>
                         <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                           This block stays rendered in Preview. Open Raw only if you need to edit the underlying markdown.

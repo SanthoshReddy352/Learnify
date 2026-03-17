@@ -796,7 +796,7 @@ export default function SubjectPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-5rem)] md:h-[calc(100vh-7rem)] -mb-4 md:-mb-8 flex flex-col overflow-hidden bg-background selection:bg-primary/20 selection:text-primary">
+    <div className="h-[calc(100dvh-4rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex flex-col overflow-hidden bg-background selection:bg-primary/20 selection:text-primary">
       {/* Top Bar */}
       <div className="border-b border-white/5 bg-background/80 backdrop-blur-md z-20 shrink-0 pt-[env(safe-area-inset-top)]">
         <div className="container mx-auto px-6 py-4">

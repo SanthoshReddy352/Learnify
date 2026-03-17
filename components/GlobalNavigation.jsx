@@ -40,6 +40,8 @@ export function GlobalNavigation({ children }) {
     )
   }
 
+  const isSubjectPage = pathname.startsWith('/subjects/')
+
   return (
     <div className="min-h-screen bg-background flex selection:bg-primary/20 selection:text-primary">
       {/* Mobile Backdrop */}
@@ -57,7 +59,11 @@ export function GlobalNavigation({ children }) {
           ml-0`}
       >
         <Header setSidebarOpen={setSidebarOpen} />
-        <div className="pt-[calc(6rem+env(safe-area-inset-top))] pb-[env(safe-area-inset-bottom)] px-4 md:pt-[calc(6rem+env(safe-area-inset-top))] md:p-8 max-w-7xl mx-auto w-full space-y-8 animate-in fade-in duration-500">
+        <div className={`pb-[env(safe-area-inset-bottom)] w-full animate-in fade-in duration-500 ${
+            isSubjectPage 
+              ? 'pt-[calc(4rem+env(safe-area-inset-top))]' 
+              : 'pt-[calc(6rem+env(safe-area-inset-top))] px-4 md:pt-[calc(6rem+env(safe-area-inset-top))] md:p-8 max-w-7xl mx-auto space-y-8'
+        }`}>
             {children}
         </div>
       </main>
