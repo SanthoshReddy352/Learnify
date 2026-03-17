@@ -3,6 +3,12 @@ import { NextResponse } from 'next/server'
 import { updateUnlockedTopics } from '@/lib/actions'
 import { generateWithGemini } from '@/lib/gemini'
 
+function normalizeOptionalText(value) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .trim()
+}
+
 export async function POST(request) {
   try {
     const supabase = await createClient()
@@ -15,8 +21,8 @@ export async function POST(request) {
     const body = await request.json()
     const { subjectId, seedText, difficulty = 3, totalMinutes = 300 } = body
 
-    if (!subjectId || !seedText) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    if (!subjectId) {
+      return NextResponse.json({ error: 'Missing subject id' }, { status: 400 })
     }
 
     // Verify subject belongs to user
@@ -31,12 +37,26 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Subject not found' }, { status: 404 })
     }
 
-    const subjectDescription = String(subject.description || '').trim()
-    const subjectSyllabus = String(subject.syllabus || '').trim()
+    const normalizedEmail = String(user.email || '').trim().toLowerCase()
+    const { data: roleData, error: roleError } = await supabase
+      .from('teacher_role_allowlist')
+      .select('role')
+      .eq('email', normalizedEmail)
+      .maybeSingle()
 
-    if (!subjectDescription || !subjectSyllabus) {
+    if (roleError) {
+      console.error('Error resolving role for curriculum generation:', roleError)
+      return NextResponse.json({ error: 'Failed to verify user role' }, { status: 500 })
+    }
+
+    const isTeacher = roleData?.role === 'teacher'
+    const subjectDescription = normalizeOptionalText(subject.description)
+    const subjectSyllabus = normalizeOptionalText(subject.syllabus)
+    const teacherInstructions = normalizeOptionalText(seedText)
+
+    if (isTeacher && (!subjectDescription || !subjectSyllabus)) {
       return NextResponse.json({
-        error: 'AI curriculum generation requires both a subject description and syllabus'
+        error: 'Teachers must provide both a subject description and syllabus before generating a roadmap'
       }, { status: 400 })
     }
 
@@ -95,12 +115,28 @@ INSTRUCTION: Use the user's profile to tailor the difficulty, examples, and prog
     }
 
     // Call Gemini API for curriculum generation
+    const contextSections = [
+      subjectDescription
+        ? `Subject Description:\n${subjectDescription}`
+        : null,
+      subjectSyllabus
+        ? `Official Syllabus / Scope To Cover:\n${subjectSyllabus}`
+        : null,
+      teacherInstructions
+        ? `Additional Teacher Instructions:\n${teacherInstructions}`
+        : null
+    ].filter(Boolean)
+
+    const subjectContext = contextSections.length > 0
+      ? contextSections.join('\n\n')
+      : 'No subject description, syllabus, or extra instructions were provided. Infer a solid general-purpose learning roadmap from the subject title and user profile alone.'
+
     const systemPrompt = `You are a curriculum designer. Generate a learning path as a directed acyclic graph (DAG).
 ${personalizationContext}
 
 CRITICAL RULES:
 1. Output ONLY valid JSON, absolutely NO markdown code blocks, no explanations
-2. Create all the topics to provide COMPREHENSIVE coverage of the subject(All the concepts in the subject must be covered), minimum 17-18 topics must  be present , There is no maximum limit for the number of topics. All the topics regarding the subject must be covered without missing any dependencies. Ensure that all the topics are coverd strictly. 
+2. Create all the topics to provide COMPREHENSIVE coverage of the subject(All the concepts in the subject must be covered), minimum 17-18 topics must  be present , There is no maximum limit for the number of topics. All the topics regarding the subject must be covered without missing any dependencies. Ensure that all the topics are coverd strictly.
 3. Prioritize breadth of topics. Cover all key areas, from basics to advanced.
 4. Each topic needs: slug (unique_id), title, brief description, estimatedMinutes
 5. Dependencies use slugs, not array indices
@@ -137,19 +173,18 @@ JSON FORMAT (NO CODE BLOCKS):
 }
 
 Subject: ${subject.title}
-Subject Description: ${subjectDescription}
-Official Syllabus / Scope To Cover:
-${subjectSyllabus}
-
-Additional Teacher Instructions:
-${seedText || 'None'}`
+Course Context:
+${subjectContext}`
 
 
     console.log('Generating curriculum with Gemini...')
     
     const responseData = await generateWithGemini([
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Generate curriculum for subject "${subject.title}" using the description and syllabus above. Cover the syllabus completely without drifting outside scope.` }
+      {
+        role: 'user',
+        content: `Generate curriculum for subject "${subject.title}". Use any provided description, syllabus, and instructions when present. If the context is sparse, infer a strong general-purpose roadmap from the title alone without asking follow-up questions.`
+      }
     ], {
       maxOutputTokens: 8000,
       apiKey: userApiKey

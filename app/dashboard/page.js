@@ -31,6 +31,7 @@ export default function Dashboard() {
 
   const [analytics, setAnalytics] = useState({ totalMinutes: 0, subjectStats: [], weeklyData: [], dueReviews: [] })
   const [hasProfile, setHasProfile] = useState(false)
+  const [roleInfo, setRoleInfo] = useState({ isTeacher: false })
 
   const [hasGeminiKey, setHasGeminiKey] = useState(true)
 
@@ -65,7 +66,8 @@ export default function Dashboard() {
         loadSubjects(user.id),
         loadAnalytics(user.id),
         checkKeys(),
-        checkProfile(user.id)
+        checkProfile(user.id),
+        loadRoleInfo()
       ])
       
       setLoading(false)
@@ -95,6 +97,22 @@ export default function Dashboard() {
     
     if (data && data.education_level) {
         setHasProfile(true)
+    }
+  }
+
+  const loadRoleInfo = async () => {
+    try {
+      const response = await fetch('/api/user/role')
+      if (!response.ok) {
+        return
+      }
+
+      const data = await response.json()
+      setRoleInfo({
+        isTeacher: !!data.isTeacher
+      })
+    } catch (error) {
+      console.error('Failed to load role info:', error)
     }
   }
 
@@ -143,8 +161,8 @@ export default function Dashboard() {
         return
     }
 
-    if (creationMode === 'ai' && (!newSubject.description.trim() || !newSubject.syllabus.trim())) {
-      toast.error('AI curriculum generation requires both a subject description and syllabus')
+    if (roleInfo.isTeacher && (!newSubject.description.trim() || !newSubject.syllabus.trim())) {
+      toast.error('Teachers must provide both a subject description and syllabus before creating a subject')
       return
     }
 
@@ -333,20 +351,20 @@ export default function Dashboard() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="description">{creationMode === 'ai' ? 'Subject Description *' : 'Description (Optional)'}</Label>
+                    <Label htmlFor="description">{roleInfo.isTeacher ? 'Subject Description *' : 'Subject Description (Optional)'}</Label>
                     <Textarea
                       id="description"
-                      placeholder={creationMode === 'ai' ? "What is this subject about? Define the scope, learner level, and objective." : "Brief description of this subject."}
+                      placeholder={roleInfo.isTeacher ? 'Define the subject scope, learner level, objectives, and teaching intent.' : 'Optional context to improve roadmap generation and make the subject easier to review later.'}
                       value={newSubject.description}
                       onChange={(e) => setNewSubject({ ...newSubject, description: e.target.value })}
                       className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[100px]"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="syllabus">{creationMode === 'ai' ? 'Syllabus *' : 'Syllabus (Optional)'}</Label>
+                    <Label htmlFor="syllabus">{roleInfo.isTeacher ? 'Syllabus *' : 'Syllabus (Optional)'}</Label>
                     <Textarea
                       id="syllabus"
-                      placeholder={creationMode === 'ai' ? 'List the modules, chapters, or syllabus points the AI must cover.' : 'Optional syllabus, module list, or outline.'}
+                      placeholder={roleInfo.isTeacher ? 'List the modules, chapters, or syllabus points students must cover.' : 'Optional syllabus, outline, or chapter list.'}
                       value={newSubject.syllabus}
                       onChange={(e) => setNewSubject({ ...newSubject, syllabus: e.target.value })}
                       className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[120px]"
@@ -356,14 +374,14 @@ export default function Dashboard() {
                   {creationMode === 'ai' && (
                      <div className="rounded-md bg-primary/10 p-3 text-sm text-primary flex gap-2">
                         <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
-                        <p>We&apos;ll generate a personalized curriculum graph using your profile, the subject description, and the syllabus you provide.</p>
+                        <p>{roleInfo.isTeacher ? 'Teacher-authored subjects require a clear description and syllabus so the generated roadmap stays aligned for students.' : 'We can generate a roadmap from the title alone, but adding a description or syllabus gives the AI better scope and coverage.'}</p>
                      </div>
                   )}
 
                   {creationMode === 'manual' && (
                      <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground flex gap-2">
                         <PenTool className="h-4 w-4 shrink-0 mt-0.5" />
-                        <p>You&apos;ll start with an empty subject. You can add topics manually or use AI to generate specific ones later.</p>
+                        <p>{roleInfo.isTeacher ? 'Teachers still need to define the subject description and syllabus before creating the subject so the course scope is clear.' : 'You&apos;ll start with an empty subject. You can add topics manually or use AI to generate them later, even if you only have a title right now.'}</p>
                      </div>
                   )}
                 </div>

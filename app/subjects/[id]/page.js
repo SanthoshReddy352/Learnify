@@ -78,6 +78,342 @@ async function exportBlob({ blob, filename, title, mimeType }) {
   return true
 }
 
+function normalizeSubjectText(value) {
+  const normalized = String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\t/g, ' ')
+    .split('\n')
+    .map((line) => line.replace(/[ ]{2,}/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return normalized
+}
+
+const SUBJECT_SECTION_PATTERN = /^(\d+)[.)]\s+(.+)$/
+const SUBJECT_BULLET_PATTERN = /^(?:[-*]|\u2022)\s+(.+)$/
+const SUBJECT_NUMBERED_ITEM_PATTERN = /^\d+[\).\]-]?\s+(.+)$/
+const SUBJECT_LABEL_PATTERN = /^([A-Za-z][A-Za-z0-9/&(),' -]{1,50}):\s*(.*)$/
+const SUBJECT_LIST_LABEL_PATTERN = /^(topics?|modules?|chapters?|units?|subtopics?|concepts?|coverage|contents?|includes?|outline|steps?|skills?|tools?|prerequisites?|references?)$/i
+
+function isCompactSubjectLine(line) {
+  return Boolean(line) && line.length <= 100 && !/[.!?;:]$/.test(line)
+}
+
+function isSubjectHeadingLine(line) {
+  return Boolean(line)
+    && line.length <= 80
+    && !SUBJECT_LABEL_PATTERN.test(line)
+    && !SUBJECT_BULLET_PATTERN.test(line)
+    && !SUBJECT_NUMBERED_ITEM_PATTERN.test(line)
+    && !/[.!?]$/.test(line)
+}
+
+function splitSubjectSections(value) {
+  const normalized = normalizeSubjectText(value)
+  if (!normalized) {
+    return { introLines: [], sections: [] }
+  }
+
+  const introLines = []
+  const sections = []
+  let currentSection = null
+
+  normalized.split('\n').forEach((line) => {
+    const sectionMatch = line.match(SUBJECT_SECTION_PATTERN)
+
+    if (sectionMatch) {
+      currentSection = {
+        title: sectionMatch[2].trim(),
+        lines: []
+      }
+      sections.push(currentSection)
+      return
+    }
+
+    if (currentSection) {
+      currentSection.lines.push(line)
+      return
+    }
+
+    introLines.push(line)
+  })
+
+  return { introLines, sections }
+}
+
+function buildSubjectContentNodes(lines) {
+  const nodes = []
+  let paragraphBuffer = []
+  let activeList = null
+
+  const flushParagraph = () => {
+    if (paragraphBuffer.length === 0) {
+      return
+    }
+
+    nodes.push({
+      type: 'paragraph',
+      content: paragraphBuffer.join(' ')
+    })
+    paragraphBuffer = []
+  }
+
+  const flushList = () => {
+    if (!activeList || activeList.items.length === 0) {
+      activeList = null
+      return
+    }
+
+    nodes.push(activeList)
+    activeList = null
+  }
+
+  const openList = ({ title = '', ordered = false }) => {
+    if (
+      activeList
+      && activeList.ordered === ordered
+      && (activeList.title || '') === (title || '')
+    ) {
+      return
+    }
+
+    flushParagraph()
+    flushList()
+    activeList = {
+      type: 'list',
+      title,
+      ordered,
+      items: []
+    }
+  }
+
+  const addListItem = (item) => {
+    if (!activeList) {
+      openList({ ordered: false })
+    }
+
+    activeList.items.push(item)
+  }
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = String(lines[index] || '').trim()
+    const nextLine = String(lines[index + 1] || '').trim()
+
+    if (!line) {
+      flushParagraph()
+      flushList()
+      continue
+    }
+
+    const labelMatch = line.match(SUBJECT_LABEL_PATTERN)
+    if (labelMatch) {
+      const label = labelMatch[1].trim()
+      const inlineContent = labelMatch[2].trim()
+
+      flushParagraph()
+      flushList()
+
+      if (inlineContent) {
+        nodes.push({
+          type: 'detail',
+          label,
+          content: inlineContent
+        })
+      } else if (SUBJECT_LIST_LABEL_PATTERN.test(label)) {
+        activeList = {
+          type: 'list',
+          title: label,
+          ordered: false,
+          items: []
+        }
+      } else {
+        nodes.push({
+          type: 'heading',
+          content: label
+        })
+      }
+      continue
+    }
+
+    const bulletMatch = line.match(SUBJECT_BULLET_PATTERN)
+    if (bulletMatch) {
+      openList({
+        title: activeList?.title || '',
+        ordered: false
+      })
+      addListItem(bulletMatch[1].trim())
+      continue
+    }
+
+    const numberedItemMatch = line.match(SUBJECT_NUMBERED_ITEM_PATTERN)
+    if (numberedItemMatch) {
+      openList({
+        title: activeList?.title || '',
+        ordered: true
+      })
+      addListItem(numberedItemMatch[1].trim())
+      continue
+    }
+
+    if (activeList && activeList.title) {
+      addListItem(line)
+      continue
+    }
+
+    if (isCompactSubjectLine(line) && isCompactSubjectLine(nextLine)) {
+      openList({ ordered: false })
+      addListItem(line)
+      continue
+    }
+
+    if (isSubjectHeadingLine(line) && !nextLine.match(SUBJECT_SECTION_PATTERN)) {
+      flushParagraph()
+      flushList()
+      nodes.push({
+        type: 'heading',
+        content: line
+      })
+      continue
+    }
+
+    flushList()
+    paragraphBuffer.push(line)
+  }
+
+  flushParagraph()
+  flushList()
+
+  return nodes
+}
+
+function buildStructuredSubjectDocument(value) {
+  const { introLines, sections } = splitSubjectSections(value)
+
+  return {
+    introNodes: buildSubjectContentNodes(introLines),
+    sections: sections.map((section, index) => ({
+      number: index + 1,
+      title: section.title,
+      nodes: buildSubjectContentNodes(section.lines)
+    }))
+  }
+}
+
+function renderSubjectContentNodes(nodes, scopeKey) {
+  return nodes.map((node, index) => {
+    if (node.type === 'heading') {
+      return (
+        <h4
+          key={`${scopeKey}-heading-${index}`}
+          className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/65 break-words"
+        >
+          {node.content}
+        </h4>
+      )
+    }
+
+    if (node.type === 'detail') {
+      return (
+        <div
+          key={`${scopeKey}-detail-${index}`}
+          className="rounded-2xl border border-border/50 bg-background/50 px-4 py-3 shadow-sm"
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">
+            {node.label}
+          </div>
+          <p className="mt-2 break-words text-sm leading-7 text-muted-foreground md:text-[15px]">
+            {node.content}
+          </p>
+        </div>
+      )
+    }
+
+    if (node.type === 'list') {
+      const ListTag = node.ordered ? 'ol' : 'ul'
+
+      return (
+        <div
+          key={`${scopeKey}-list-${index}`}
+          className="rounded-2xl border border-border/40 bg-background/35 px-4 py-4"
+        >
+          {node.title ? (
+            <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">
+              {node.title}
+            </div>
+          ) : null}
+          <ListTag
+            className={
+              node.ordered
+                ? 'space-y-2 pl-5 text-sm leading-7 text-muted-foreground marker:font-semibold marker:text-primary md:text-[15px]'
+                : 'space-y-2 pl-5 text-sm leading-7 text-muted-foreground marker:text-primary md:text-[15px] list-disc'
+            }
+          >
+            {node.items.map((item, itemIndex) => (
+              <li key={`${scopeKey}-list-item-${index}-${itemIndex}`} className="break-words pl-1">
+                {item}
+              </li>
+            ))}
+          </ListTag>
+        </div>
+      )
+    }
+
+    return (
+      <p
+        key={`${scopeKey}-paragraph-${index}`}
+        className="break-words text-sm leading-7 text-muted-foreground md:text-[15px]"
+      >
+        {node.content}
+      </p>
+    )
+  })
+}
+
+function FormattedSubjectText({ value }) {
+  const document = buildStructuredSubjectDocument(value)
+  const hasSections = document.sections.length > 0
+
+  return (
+    <div className="max-w-full space-y-5 overflow-hidden">
+      {document.introNodes.length > 0 ? (
+        <div className="space-y-3 rounded-[22px] border border-border/50 bg-gradient-to-br from-background to-accent/15 px-4 py-4 shadow-sm md:px-5">
+          {renderSubjectContentNodes(document.introNodes, 'subject-intro')}
+        </div>
+      ) : null}
+
+      {hasSections ? (
+        <div className="space-y-4">
+          {document.sections.map((section) => (
+            <section
+              key={`subject-section-${section.number}`}
+              className="rounded-[24px] border border-border/60 bg-gradient-to-br from-background via-background to-accent/20 px-4 py-4 shadow-sm md:px-5"
+            >
+              <div className="flex items-start gap-3 md:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary shadow-sm">
+                  {section.number}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="break-words text-base font-semibold leading-snug text-foreground md:text-lg">
+                    {section.title}
+                  </h3>
+                  {section.nodes.length > 0 ? (
+                    <div className="mt-4 space-y-4 border-l border-border/60 pl-4 md:pl-5">
+                      {renderSubjectContentNodes(section.nodes, `subject-section-${section.number}`)}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 const noteMarkdownComponents = {
   ...MarkdownComponents,
   code: ({ node, inline, className, children, ...props }) => (
@@ -159,6 +495,7 @@ export default function SubjectPage() {
   const [subject, setSubject] = useState(null)
   const [topics, setTopics] = useState([])
   const [dependencies, setDependencies] = useState([])
+  const [roleInfo, setRoleInfo] = useState({ isTeacher: false })
 
   const [studyLogs, setStudyLogs] = useState([]) // Keep for legacy or specific log lists if needed
   const [analytics, setAnalytics] = useState({ weakTopics: [], weeklyData: [], totalMinutes: 0 })
@@ -295,9 +632,30 @@ export default function SubjectPage() {
 
   const supabase = createClient()
 
+  const loadRoleInfo = async () => {
+    try {
+      const response = await fetch('/api/user/role')
+      if (!response.ok) {
+        return
+      }
+
+      const data = await response.json()
+      setRoleInfo({
+        isTeacher: !!data.isTeacher
+      })
+    } catch (error) {
+      console.error('Failed to load role info:', error)
+    }
+  }
+
   const handleUpdateSubject = async () => {
     if (!updatedSubject.title.trim()) {
       toast.error('Please enter a subject title')
+      return
+    }
+
+    if (roleInfo.isTeacher && (!updatedSubject.description.trim() || !updatedSubject.syllabus.trim())) {
+      toast.error('Teachers must provide both a subject description and syllabus before saving the subject')
       return
     }
 
@@ -330,7 +688,10 @@ export default function SubjectPage() {
       setUser(user)
       
       // Run unlocking engine to ensure correctness before loading
-      await updateUnlockedTopics(subjectId)
+      await Promise.all([
+        updateUnlockedTopics(subjectId),
+        loadRoleInfo()
+      ])
       
       loadSubjectData(user.id)
       setLoading(false)
@@ -596,8 +957,8 @@ export default function SubjectPage() {
   }
 
   const handleAIGenerate = async () => {
-    if (!String(subject?.description || '').trim() || !String(subject?.syllabus || '').trim()) {
-      toast.error('Add both a subject description and syllabus before using AI curriculum generation')
+    if (roleInfo.isTeacher && (!String(subject?.description || '').trim() || !String(subject?.syllabus || '').trim())) {
+      toast.error('Teachers must add both a subject description and syllabus before using AI curriculum generation')
       setUpdatedSubject({
         title: subject?.title || '',
         description: subject?.description || '',
@@ -605,11 +966,6 @@ export default function SubjectPage() {
       })
       setEditMode('all')
       setIsEditSubjectOpen(true)
-      return
-    }
-
-    if (!aiConfig.seedText.trim()) {
-      toast.error('Please enter a description or context')
       return
     }
 
@@ -770,6 +1126,9 @@ export default function SubjectPage() {
       </div>
     )
   }
+
+  const formattedSubjectDescription = normalizeSubjectText(subject.description)
+  const formattedSubjectSyllabus = normalizeSubjectText(subject.syllabus)
 
   // AI Generation Loading Overlay
   if (aiGenerating) {
@@ -1061,7 +1420,7 @@ export default function SubjectPage() {
                 />
 
                 {/* Subject description */}
-                {subject.description && (
+                {formattedSubjectDescription && (
                   <Card className="glass-card group relative">
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -1081,17 +1440,17 @@ export default function SubjectPage() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{subject.description}</p>
+                      <FormattedSubjectText value={formattedSubjectDescription} />
                     </CardContent>
                   </Card>
                 )}
-                {subject.syllabus && (
+                {formattedSubjectSyllabus && (
                   <Card className="glass-card">
                     <CardHeader>
                       <CardTitle className="text-xl">Syllabus</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{subject.syllabus}</p>
+                      <FormattedSubjectText value={formattedSubjectSyllabus} />
                     </CardContent>
                   </Card>
                 )}
@@ -1355,7 +1714,7 @@ export default function SubjectPage() {
         <DialogContent className="bg-card border-white/10 sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Subject Details</DialogTitle>
-            <DialogDescription>Update your subject title, AI context, and syllabus.</DialogDescription>
+            <DialogDescription>{roleInfo.isTeacher ? 'Update your subject title, description, and syllabus. Teacher-authored subjects require both context fields.' : 'Update your subject title, description, and syllabus. These fields stay optional for self-study subjects.'}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -1368,20 +1727,20 @@ export default function SubjectPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-subject-description">Subject Description</Label>
+              <Label htmlFor="edit-subject-description">{roleInfo.isTeacher ? 'Subject Description *' : 'Subject Description'}</Label>
               <Textarea
                 id="edit-subject-description"
-                placeholder="Explain the scope, learner level, goals, and teacher guidance for this subject..."
+                placeholder={roleInfo.isTeacher ? 'Explain the scope, learner level, goals, and teacher guidance for this subject...' : 'Optional context about the scope, goals, or learner level for this subject...'}
                 value={updatedSubject.description}
                 onChange={(e) => setUpdatedSubject({ ...updatedSubject, description: e.target.value })}
                 className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[100px]"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-subject-syllabus">Syllabus</Label>
+              <Label htmlFor="edit-subject-syllabus">{roleInfo.isTeacher ? 'Syllabus *' : 'Syllabus'}</Label>
               <Textarea
                 id="edit-subject-syllabus"
-                placeholder="List the chapters, modules, or syllabus points this course should cover..."
+                placeholder={roleInfo.isTeacher ? 'List the chapters, modules, or syllabus points this course should cover...' : 'Optional syllabus, chapter list, or outline...'}
                 value={updatedSubject.syllabus}
                 onChange={(e) => setUpdatedSubject({ ...updatedSubject, syllabus: e.target.value })}
                 className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[140px]"
@@ -1483,7 +1842,7 @@ export default function SubjectPage() {
               AI Curriculum Generator
             </DialogTitle>
             <DialogDescription>
-              Let AI create a complete learning path with topics and dependencies for your subject.
+              {roleInfo.isTeacher ? 'Let AI create a complete learning path with topics and dependencies for your subject. Teacher-authored subjects need a description and syllabus first.' : 'Let AI create a complete learning path with topics and dependencies for your subject. The title alone is enough to start, and extra context is optional.'}
             </DialogDescription>
           </DialogHeader>
           {aiGenerating ? (
@@ -1494,13 +1853,13 @@ export default function SubjectPage() {
               <Label htmlFor="seed-text">Subject Context & Goals</Label>
               <Textarea
                 id="seed-text"
-                placeholder="e.g., I want to learn Python programming from basics to building web applications. Include data structures, OOP, and Flask framework."
+                placeholder="Optional: add goals, priorities, exclusions, or any extra direction for the roadmap."
                 value={aiConfig.seedText}
                 onChange={(e) => setAiConfig({ ...aiConfig, seedText: e.target.value })}
                 className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[120px]"
               />
               <p className="text-xs text-muted-foreground">
-                Describe what you want to learn. The more specific, the better!
+                {roleInfo.isTeacher ? 'Use this for extra guidance beyond the required description and syllabus.' : 'Optional. Add it when you want the roadmap to reflect a specific goal or scope.'}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
