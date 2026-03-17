@@ -439,17 +439,28 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
     const renderDiagram = async () => {
       try {
         const cleanCode = sanitizeMermaidCode(code)
-        
+        const diagramType = cleanCode
+          .split('\n')
+          .map((line) => line.trim())
+          .find(Boolean) || ''
+
         // Use theme state instead of direct DOM check
         const isDarkMode = theme === 'dark'
-        
+
         const mermaid = (await import('mermaid')).default
-        
+
         // Suppress default error handling which prints to DOM
         mermaid.parseError = () => {}
 
         // Comprehensive purple-only theme - NO other colors allowed
-        const themeConfig = isDarkMode ? {
+        const useConservativeTheme = /^timeline\b/i.test(diagramType)
+        const themeConfig = useConservativeTheme ? {
+          theme: isDarkMode ? 'dark' : 'neutral',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          timeline: {
+            disableMulticolor: true,
+          }
+        } : isDarkMode ? {
           theme: 'dark',
           themeVariables: {
             // Core colors - all purple
@@ -597,6 +608,10 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
           }
         }
 
+        if (typeof mermaid.reset === 'function') {
+          mermaid.reset()
+        }
+
         mermaid.initialize({
           startOnLoad: false,
           suppressErrorRendering: true,
@@ -658,7 +673,7 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
 
   return (
     <>
-      <figure className="my-8 group" data-mermaid-code={encodeURIComponent(code)}>
+      <figure className="my-8 group overflow-hidden" data-mermaid-code={encodeURIComponent(code)}>
         <div 
           className="rounded-xl overflow-hidden border border-border shadow-lg cursor-zoom-in transition-all hover:shadow-xl hover:border-primary/30 bg-card"
           onClick={() => setIsOpen(true)}
@@ -695,9 +710,9 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
             </div>
           </div>
           {/* Diagram Content */}
-          <div 
+          <div
             ref={containerRef}
-            className="p-4 flex justify-center items-center overflow-x-auto custom-scrollbar [&_svg]:max-w-full [&_svg]:h-auto bg-card"
+            className="min-w-0 overflow-hidden bg-card p-4 [&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-full"
             dangerouslySetInnerHTML={{ __html: svg }}
           />
         </div>

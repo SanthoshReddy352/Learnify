@@ -31,17 +31,25 @@ export default function LandingPage() {
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
+      if (user) {
+        router.push('/dashboard')
+      } else {
+        setUser(null)
+        setLoading(false)
+      }
     }
     checkUser()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        router.push('/dashboard')
+      } else {
+        setUser(null)
+      }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [router, supabase.auth])
 
   const handleGoogleSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({

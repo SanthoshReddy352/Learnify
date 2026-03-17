@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Capacitor } from '@capacitor/core'
+import { SpeechRecognition as NativeSpeechRecognition } from '@capacitor-community/speech-recognition'
 import { PenLine, X, Loader2, Save, Mic, List, AlertCircle, Lightbulb, CheckSquare, Clock, Edit2, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { saveTopicNotes } from '@/lib/actions'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
 import CodeBlock, { cleanCodeContent, parseMermaidTitle, parseMermaidDescription } from './CodeBlock'
 
 const FENCED_BLOCK_REGEX = /```([^\n`]*)\n([\s\S]*?)```/g
@@ -17,7 +19,7 @@ const summarizeMaskedBlock = (language, code) => {
 
   if (normalizedLanguage === 'mermaid') {
     const title = parseMermaidTitle(code) || 'Diagram'
-    const description = parseMermaidDescription(code) || 'Rendered in preview.'
+    const description = parseMermaidDescription(code) || 'Rendered in Preview.'
 
     return {
       badge: 'DIAGRAM',
@@ -29,7 +31,7 @@ const summarizeMaskedBlock = (language, code) => {
   const firstMeaningfulLine = code
     .split('\n')
     .map((line) => line.trim())
-    .find(Boolean) || 'Rendered in preview.'
+    .find(Boolean) || 'Rendered in Preview.'
 
   return {
     badge: normalizedLanguage ? normalizedLanguage.toUpperCase() : 'CODE',
@@ -79,9 +81,58 @@ const parseNoteSegments = (content = '') => {
   return segments
 }
 
-const normalizeNoteSegments = (segments) => segments
+const createEditorSegments = (content = '') => {
+  const segments = parseNoteSegments(content)
 
-const stringifyNoteSegments = (segments) => normalizeNoteSegments(segments).map((segment) => segment.value).join('')
+  return segments.map((segment, index) => {
+    if (segment.type !== 'text') {
+      return segment
+    }
+
+    let value = segment.value
+
+    if (segments[index - 1]?.type === 'block') {
+      value = value.replace(/^\n/, '')
+    }
+
+    if (segments[index + 1]?.type === 'block') {
+      value = value.replace(/\n$/, '')
+    }
+
+    return { ...segment, value }
+  })
+}
+
+const mergeAdjacentTextSegments = (segments) => {
+  return segments.reduce((mergedSegments, segment) => {
+    const previous = mergedSegments[mergedSegments.length - 1]
+
+    if (segment.type === 'text' && previous?.type === 'text') {
+      previous.value += segment.value
+      return mergedSegments
+    }
+
+    mergedSegments.push({ ...segment })
+    return mergedSegments
+  }, [])
+}
+
+const stringifyNoteSegments = (segments) => {
+  const mergedSegments = mergeAdjacentTextSegments(segments)
+
+  return mergedSegments.map((segment, index) => {
+    if (segment.type !== 'text') {
+      return segment.value
+    }
+
+    const hasPreviousBlock = mergedSegments[index - 1]?.type === 'block'
+    const hasNextBlock = mergedSegments[index + 1]?.type === 'block'
+    const prefix = hasPreviousBlock ? '\n' : ''
+    const suffix = hasNextBlock ? '\n' : ''
+
+    return `${prefix}${segment.value}${suffix}`
+  }).join('')
+}
 
 const findLastTextSegmentIndex = (segments) => {
   for (let index = segments.length - 1; index >= 0; index -= 1) {
@@ -165,6 +216,7 @@ const NOTE_PREVIEW_COMPONENTS = {
 }
 
 export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitle, onSaveNotes = null }) {
+  const isAndroidNative = Capacitor.getPlatform() === 'android'
   const [isOpen, setIsOpen] = useState(false)
   const defaultNote = initialNotes ? initialNotes : (topicTitle ? `# ${topicTitle}\n\n` : '')
   const [notes, setNotes] = useState(defaultNote)
@@ -184,7 +236,10 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
   const isRecognitionStartingRef = useRef(false)
   const microphoneStreamRef = useRef(null)
   const activeTextSegmentRef = useRef(0)
-  const editorSegments = parseNoteSegments(notes)
+  const insertAtCursorRef = useRef(null)
+  const nativeSpeechSessionRef = useRef(0)
+  const nativeSpeechCancelledRef = useRef(false)
+  const editorSegments = createEditorSegments(notes)
   const hasMaskedBlocks = editorSegments.some((segment) => segment.type === 'block')
 
   const handleSave = useCallback(async (currentNotes) => {
@@ -234,7 +289,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
   }, [])
 
   const updateTextSegment = useCallback((segmentIndex, value) => {
-    const segments = parseNoteSegments(notes)
+    const segments = createEditorSegments(notes)
     if (!segments[segmentIndex] || segments[segmentIndex].type !== 'text') {
       return
     }
@@ -283,6 +338,30 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
     }, 0)
   }, [])
 
+  const commitTranscriptToNotes = useCallback((transcript) => {
+    const normalizedTranscript = String(transcript || '').trim()
+    if (!normalizedTranscript) {
+      return false
+    }
+
+    const formattedTranscript = /[.!?]\s*$/.test(normalizedTranscript)
+      ? `${normalizedTranscript} `
+      : `${normalizedTranscript}. `
+
+    if (insertAtCursorRef.current) {
+      insertAtCursorRef.current(formattedTranscript)
+      return true
+    }
+
+    setNotes((previous) => {
+      const separator = previous && !previous.endsWith(' ') && !previous.endsWith('\n') ? ' ' : ''
+      const nextNotes = `${previous}${separator}${formattedTranscript}`
+      setSaveStatus('saving')
+      return nextNotes
+    })
+    return true
+  }, [])
+
   const releaseMicrophone = useCallback(() => {
     if (microphoneStreamRef.current) {
       microphoneStreamRef.current.getTracks().forEach((track) => track.stop())
@@ -295,6 +374,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
     isRecognitionStartingRef.current = false
     setIsPreparingMic(false)
     setIsRecording(false)
+    nativeSpeechCancelledRef.current = true
 
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current)
@@ -306,6 +386,13 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       restartTimeoutRef.current = null
     }
 
+    if (isAndroidNative) {
+      NativeSpeechRecognition.stop().catch(() => {})
+      NativeSpeechRecognition.removeAllListeners().catch(() => {})
+      releaseMicrophone()
+      return
+    }
+
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop()
@@ -313,11 +400,34 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
     }
 
     releaseMicrophone()
-  }, [releaseMicrophone])
+  }, [isAndroidNative, releaseMicrophone])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
       return undefined
+    }
+
+    if (isAndroidNative) {
+      let cancelled = false
+
+      NativeSpeechRecognition.available()
+        .then(({ available }) => {
+          if (!cancelled) {
+            setHasSpeechSupport(available)
+          }
+        })
+        .catch((error) => {
+          console.error('Native speech recognition availability error', error)
+          if (!cancelled) {
+            setHasSpeechSupport(false)
+          }
+        })
+
+      return () => {
+        cancelled = true
+        NativeSpeechRecognition.stop().catch(() => {})
+        NativeSpeechRecognition.removeAllListeners().catch(() => {})
+      }
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -332,7 +442,6 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
     recognition.interimResults = true
     recognition.maxAlternatives = 1
     recognition.lang = 'en-US'
-
     recognition.onresult = (event) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (!event.results[i].isFinal) {
@@ -344,12 +453,16 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
           continue
         }
 
-        setNotes((previous) => {
-          const separator = previous && !previous.endsWith(' ') && !previous.endsWith('\n') ? ' ' : ''
-          const newNotes = `${previous}${separator}${transcript}. `
-          setSaveStatus('saving')
-          return newNotes
-        })
+        if (insertAtCursorRef.current) {
+          insertAtCursorRef.current(transcript + '. ')
+        } else {
+          setNotes((previous) => {
+            const separator = previous && !previous.endsWith(' ') && !previous.endsWith('\n') ? ' ' : ''
+            const newNotes = `${previous}${separator}${transcript}. `
+            setSaveStatus('saving')
+            return newNotes
+          })
+        }
       }
     }
 
@@ -422,7 +535,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       stopRecording()
       recognitionRef.current = null
     }
-  }, [releaseMicrophone, stopRecording])
+  }, [isAndroidNative, releaseMicrophone, stopRecording])
 
   useEffect(() => {
     const handleAddSnippet = (event) => {
@@ -431,7 +544,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
         const spacer = previous.endsWith('\n\n') ? '' : (previous ? '\n\n' : '')
         // Do not wrap code blocks/mermaid diagrams in blockquotes
         const isCodeBlock = text.startsWith('```')
-        const newNotes = isCodeBlock 
+        const newNotes = isCodeBlock
           ? `${previous}${spacer}${text}\n\n`
           : `${previous}${spacer}> [${color}] ${text}\n\n`
         setSaveStatus('saving')
@@ -445,6 +558,27 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
   }, [])
 
   const ensureMicrophoneAccess = useCallback(async () => {
+    if (isAndroidNative) {
+      try {
+        const permissionStatus = await NativeSpeechRecognition.checkPermissions()
+        if (permissionStatus.speechRecognition === 'granted') {
+          return true
+        }
+
+        const requestedStatus = await NativeSpeechRecognition.requestPermissions()
+        if (requestedStatus.speechRecognition === 'granted') {
+          return true
+        }
+
+        toast.error('Allow microphone permission in Android settings to use voice notes.')
+        return false
+      } catch (error) {
+        console.error('Android speech permission error', error)
+        toast.error('Could not access Android speech recognition permissions.')
+        return false
+      }
+    }
+
     if (typeof navigator === 'undefined') {
       return true
     }
@@ -462,7 +596,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
           return true
         }
 
-        if (permissionStatus.state === 'denied') {
+        if (permissionStatus.state === 'denied' && !Capacitor.isNativePlatform()) {
           toast.error('Allow microphone access in your browser to use voice notes.')
           return false
         }
@@ -480,23 +614,30 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       console.error('Microphone permission error', error)
 
       if (Capacitor.isNativePlatform()) {
-        toast.error('Allow microphone access in the app settings to use voice notes.')
+        // Fallback: WebViews sometimes block getUserMedia despite app permissions.
+        // We return true because Web Speech API might still work natively.
+        return true
       } else {
         toast.error('Allow microphone access in your browser to use voice notes.')
       }
 
       return false
     }
-  }, [releaseMicrophone])
+  }, [isAndroidNative, releaseMicrophone])
 
   const toggleRecording = async () => {
     if (isRecording) {
       stopRecording()
-      toast.info('⏹️ Recording stopped.')
+      toast.info(isAndroidNative ? 'Voice dictation stopped.' : '⏹️ Recording stopped.')
       return
     }
 
-    if (!recognitionRef.current || !hasSpeechSupport) {
+    if (!hasSpeechSupport) {
+      toast.error('Speech recognition is not supported on this device.')
+      return
+    }
+
+    if (!isAndroidNative && !recognitionRef.current) {
       toast.error('Speech recognition is not supported on this device.')
       return
     }
@@ -512,6 +653,115 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
     if (!microphoneReady) {
       setIsPreparingMic(false)
       return
+    }
+
+    if (isAndroidNative) {
+      try {
+        const { available } = await NativeSpeechRecognition.available()
+        if (!available) {
+          setIsPreparingMic(false)
+          toast.error('Android speech recognition is unavailable on this device.')
+          return
+        }
+
+        nativeSpeechCancelledRef.current = false
+        isRecognitionStartingRef.current = true
+        shouldKeepRecordingRef.current = true
+        nativeSpeechSessionRef.current += 1
+        const sessionId = nativeSpeechSessionRef.current
+
+        await NativeSpeechRecognition.removeAllListeners().catch(() => {})
+        await NativeSpeechRecognition.addListener('listeningState', ({ status }) => {
+          if (sessionId !== nativeSpeechSessionRef.current) {
+            return
+          }
+
+          if (status === 'started') {
+            setIsPreparingMic(false)
+            setIsRecording(true)
+          } else {
+            isRecognitionStartingRef.current = false
+            setIsPreparingMic(false)
+            setIsRecording(false)
+          }
+        })
+
+        const startPromise = NativeSpeechRecognition.start({
+          language: 'en-US',
+          maxResults: 1,
+          popup: false,
+          partialResults: false,
+          prompt: 'Speak your note'
+        })
+
+        setIsRecording(true)
+        setIsPreparingMic(false)
+        toast.success('🎙️ Android dictation started.')
+
+        if (recordingTimeoutRef.current) {
+          clearTimeout(recordingTimeoutRef.current)
+        }
+
+        recordingTimeoutRef.current = window.setTimeout(() => {
+          stopRecording()
+          toast.info('Voice dictation stopped after 5 minutes.')
+        }, 5 * 60 * 1000)
+
+        startPromise
+          .then(({ matches }) => {
+            if (sessionId !== nativeSpeechSessionRef.current) {
+              return
+            }
+
+            const transcript = Array.isArray(matches) ? matches[0] : ''
+            if (!nativeSpeechCancelledRef.current && transcript) {
+              commitTranscriptToNotes(transcript)
+            }
+          })
+          .catch((error) => {
+            if (sessionId !== nativeSpeechSessionRef.current) {
+              return
+            }
+
+            const errorMessage = String(error?.message || error || '')
+            const normalizedError = errorMessage.toLowerCase()
+            if (nativeSpeechCancelledRef.current) {
+              return
+            }
+
+            if (normalizedError.includes('no match') || normalizedError.includes('no speech')) {
+              toast.info('No speech was detected.')
+              return
+            }
+
+            console.error('Android speech recognition error', error)
+            toast.error('Android voice dictation stopped unexpectedly.')
+          })
+          .finally(() => {
+            if (sessionId !== nativeSpeechSessionRef.current) {
+              return
+            }
+
+            shouldKeepRecordingRef.current = false
+            isRecognitionStartingRef.current = false
+            setIsPreparingMic(false)
+            setIsRecording(false)
+
+            if (recordingTimeoutRef.current) {
+              clearTimeout(recordingTimeoutRef.current)
+              recordingTimeoutRef.current = null
+            }
+
+            NativeSpeechRecognition.removeAllListeners().catch(() => {})
+          })
+
+        return
+      } catch (error) {
+        console.error('Android dictation start error', error)
+        stopRecording()
+        toast.error('Could not start Android voice dictation.')
+        return
+      }
     }
 
     try {
@@ -564,7 +814,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
       return
     }
 
-    const segments = parseNoteSegments(notes)
+    const segments = createEditorSegments(notes)
     let targetIndex = activeTextSegmentRef.current
 
     if (!segments[targetIndex] || segments[targetIndex].type !== 'text') {
@@ -597,6 +847,8 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
     updateNotesFromSegments(segments)
     focusSegmentEditor(targetIndex, start + formattedText.length)
   }
+
+  insertAtCursorRef.current = insertAtCursor
 
   const handleManualSave = () => {
     handleSave(notes)
@@ -691,7 +943,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                       ? 'bg-red-500/20 text-red-600 hover:bg-red-500/30 dark:text-red-400'
                       : 'text-slate-600 hover:bg-blue-100 dark:text-slate-300 dark:hover:bg-blue-900/30'
                   } ${(!hasSpeechSupport || isPreparingMic) ? 'cursor-not-allowed opacity-60' : ''}`}
-                  title={isRecording ? 'Stop Recording' : 'Voice Record (5 min max)'}
+                  title={isRecording ? (isAndroidNative ? 'Stop Dictation' : 'Stop Recording') : (isAndroidNative ? 'Voice Dictation' : 'Voice Record (5 min max)')}
                 >
                   {isPreparingMic ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -721,10 +973,10 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
 
           <div className="relative flex flex-1 flex-col overflow-hidden bg-white dark:bg-[#1a1c23]">
             {isPreview ? (
-              <div className="prose max-w-none flex-1 overflow-y-auto p-5 text-sm leading-relaxed scroll-smooth prose-p:text-slate-700 prose-headings:text-slate-800 prose-a:text-blue-600 dark:prose-invert dark:prose-p:text-slate-300 dark:prose-headings:text-slate-100 dark:prose-a:text-blue-400" style={{ fontFamily: "'Virgil', cursive" }}>
+              <div className="prose max-w-none flex-1 overflow-x-hidden overflow-y-auto break-words p-5 text-sm leading-relaxed scroll-smooth prose-p:text-slate-700 prose-headings:text-slate-800 prose-a:text-blue-600 dark:prose-invert dark:prose-p:text-slate-300 dark:prose-headings:text-slate-100 dark:prose-a:text-blue-400" style={{ fontFamily: "'Virgil', cursive" }}>
                 {notes ? (
                   <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
                     components={NOTE_PREVIEW_COMPONENTS}
                   >
                     {notes}
@@ -735,12 +987,12 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
               </div>
             ) : (
               hasMaskedBlocks ? (
-                <div className="relative z-10 flex h-full flex-col gap-3 overflow-y-auto p-4">
+                <div className="relative z-10 flex h-full flex-col gap-3 overflow-x-hidden overflow-y-auto p-4">
                   {editorSegments.map((segment, index) => (
                     segment.type === 'block' ? (
                       <div
                         key={`block-${index}`}
-                        className="rounded-2xl border border-slate-200/80 bg-slate-50/90 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/70"
+                        className="min-w-0 rounded-2xl border border-slate-200/80 bg-slate-50/90 p-4 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/70"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -784,16 +1036,26 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                             </Button>
                           </div>
                         </div>
-                        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                          This block stays rendered in Preview. Open Raw only if you need to edit the underlying markdown.
-                        </p>
+
+                        {segment.language === 'mermaid' ? (
+                          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 dark:border-slate-700/70 dark:bg-slate-950/70">
+                            <CodeBlock className="language-mermaid" allowAddToNotes={false}>
+                              {segment.code}
+                            </CodeBlock>
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                            This block stays rendered in Preview. Open Raw only if you need to edit the underlying markdown.
+                          </p>
+                        )}
 
                         {expandedRawBlocks[index] && (
                           <textarea
-                            className="mt-3 min-h-[160px] w-full resize-y rounded-xl border border-slate-200 bg-white/90 p-3 font-mono text-xs leading-6 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-100"
+                            className="mt-3 min-h-[160px] w-full resize-y overflow-x-hidden rounded-xl border border-slate-200 bg-white/90 p-3 font-mono text-xs leading-6 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-100"
                             value={segment.value}
                             onChange={(event) => updateBlockSegment(index, event.target.value)}
                             spellCheck={false}
+                            wrap="soft"
                           />
                         )}
                       </div>
@@ -807,7 +1069,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                             delete segmentedTextareaRefs.current[index]
                           }
                         }}
-                        className="w-full resize-y rounded-2xl border border-slate-200/70 bg-transparent px-4 py-3 leading-[26px] text-slate-800 placeholder:text-slate-400/60 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700/60 dark:text-slate-200 dark:placeholder:text-slate-500/50"
+                        className="w-full min-w-0 resize-y overflow-x-hidden rounded-2xl border border-slate-200/70 bg-transparent px-4 py-3 leading-[26px] text-slate-800 placeholder:text-slate-400/60 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700/60 dark:text-slate-200 dark:placeholder:text-slate-500/50"
                         style={{
                           fontFamily: "'Virgil', cursive",
                           minHeight: segment.value.trim() ? `${Math.min(280, Math.max(92, (segment.value.split('\n').length + 1) * 26))}px` : '92px'
@@ -828,6 +1090,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                           updateTextSegment(index, event.target.value)
                         }}
                         spellCheck={false}
+                        wrap="soft"
                       />
                     )
                   ))}
@@ -835,8 +1098,8 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
               ) : (
                 <textarea
                   ref={textareaRef}
-                  className="relative z-10 h-full w-full resize-none border-none bg-transparent p-5 leading-[26px] text-slate-800 placeholder:text-slate-400/60 focus:outline-none focus:ring-0 scroll-smooth selection:bg-blue-500/20 dark:text-slate-200 dark:placeholder:text-slate-500/50"
-                  style={{ fontFamily: "'Virgil', cursive" }}
+                  className="relative z-10 h-full w-full resize-none overflow-x-hidden border-none bg-transparent p-5 leading-[26px] text-slate-800 placeholder:text-slate-400/60 focus:outline-none focus:ring-0 scroll-smooth selection:bg-blue-500/20 dark:text-slate-200 dark:placeholder:text-slate-500/50"
+                  style={{ fontFamily: "'Virgil', cursive", whiteSpace: 'pre-wrap' }}
                   placeholder="Jot down your learner notes here... Markdown is supported!"
                   value={notes}
                   onChange={(event) => {
@@ -844,6 +1107,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                     setSaveStatus('saving')
                   }}
                   spellCheck={false}
+                  wrap="soft"
                 />
               )
             )}
