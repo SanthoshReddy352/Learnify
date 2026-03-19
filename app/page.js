@@ -32,17 +32,17 @@ export default function LandingPage() {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        router.push('/dashboard')
+        setUser(user)
       } else {
         setUser(null)
-        setLoading(false)
       }
+      setLoading(false)
     }
     checkUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        router.push('/dashboard')
+        setUser(session.user)
       } else {
         setUser(null)
       }
