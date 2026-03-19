@@ -9,10 +9,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
     strategy:
       matrix:
-        node-version: [22.x]  # ✅ CHANGED: 18.x → 22.x
+        node-version: [22.x]
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
     steps:
     - name: Checkout code
@@ -41,3 +43,4 @@ jobs:
     
     - name: Run security audit
       run: yarn audit --level moderate  # ✅ CHANGED: npm audit → yarn audit
+  
