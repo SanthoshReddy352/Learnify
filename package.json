@@ -9,7 +9,9 @@
     "build": "next build",
     "start": "next start",
     "android:dev": "copy capacitor.config.dev.json capacitor.config.json && npx cap sync android",
-    "android:prod": "copy capacitor.config.prod.json capacitor.config.json && npx cap sync android"
+    "android:prod": "copy capacitor.config.prod.json capacitor.config.json && npx cap sync android",
+    "lint": "next lint",
+    "test": "jest"
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^7.0.1",
