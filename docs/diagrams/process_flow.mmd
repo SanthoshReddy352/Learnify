@@ -1,0 +1,19 @@
+flowchart TD
+    Start([Decision: What to study?]) --> Rec{Dashboard Recommendation}
+    Rec -- "New Topic" --> Learn[Start Learning Session]
+    Rec -- "Due Review" --> Review[Start Review Session]
+    
+    Learn --> Content[Consume Content & Flashcards]
+    Content --> DoneLearn[Complete Learning]
+    DoneLearn --> SM2_Initial[Set SM-2 State: Interval=1]
+    SM2_Initial --> Unlock[Run Unlocking Engine]
+    Unlock --> Dashboard[Back to Dashboard]
+    
+    Review --> Rating[Submit Quality Rating 0-5]
+    Rating --> SM2_Calc[Calculate SM-2: New Interval/Ease]
+    SM2_Calc --> Mastered{Mastered?}
+    Mastered -- Yes --> MarkMastered[Set Status: Mastered]
+    Mastered -- No --> SetReview[Set Status: Reviewing]
+    
+    MarkMastered --> Unlock
+    SetReview --> Dashboard

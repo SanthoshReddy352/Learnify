@@ -1,0 +1,30 @@
+graph TD
+    User([User]) <--> NextClient[Next.js Client Components]
+    NextClient <--> ReactFlow[React Flow Visualizer]
+    NextClient <--> Framer[Framer Motion Animations]
+    
+    subgraph Server[Next.js Server Side]
+        NextServer[Next.js Server Actions / API]
+        Logic[Business Logic: SM-2, Unlocking Engine]
+    end
+    
+    NextClient <--> NextServer
+    NextServer <--> Logic
+    
+    subgraph BaaS[Supabase BaaS]
+        Auth[Supabase Auth]
+        DB[(PostgreSQL DB)]
+        Realtime[Supabase Realtime]
+        Storage[Supabase Storage]
+    end
+    
+    NextServer <--> Auth
+    NextServer <--> DB
+    NextClient <--> Realtime
+    NextServer <--> Storage
+    
+    subgraph AI[External AI]
+        OpenRouter[OpenRouter API]
+    end
+    
+    NextServer <-- JSON --> OpenRouter

@@ -1,0 +1,26 @@
+graph TD
+    Student([Student])
+    AI([AI Engine - OpenRouter])
+    
+    subgraph Learnify_App [Learnify Platform]
+        UC1(Manage Subjects)
+        UC2(Generate AI Roadmap)
+        UC3(Visualize Knowledge Graph)
+        UC4(Study Topic - Learning)
+        UC5(Review Topic - SM-2)
+        UC6(View Analytics)
+        UC7(Clone Community Subject)
+        UC8(Share to Community)
+    end
+    
+    Student --> UC1
+    Student --> UC2
+    Student --> UC3
+    Student --> UC4
+    Student --> UC5
+    Student --> UC6
+    Student --> UC7
+    Student --> UC8
+    
+    AI -. provides DAG structure .-> UC2
+    AI -. generates content .-> UC4

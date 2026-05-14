@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant S as Server (API)
+    participant AI as OpenRouter (LLM)
+    participant DB as Supabase DB
+
+    U->>F: Enter Subject Name (e.g. "React")
+    F->>S: POST /api/generate-roadmap
+    S->>AI: Prompt: Generate DAG JSON for "React"
+    AI-->>S: Return JSON (Nodes, Edges, Dependencies)
+    S->>DB: Insert Subject record
+    S->>DB: Bulk insert Topics
+    S->>DB: Bulk insert Dependencies
+    S->>S: Run updateUnlockedTopics()
+    S-->>F: Return success & newSubjectId
+    F->>U: Redirect to Subject Graph
