@@ -24,6 +24,7 @@ import SelectionHighlighter from '@/components/sub-components/SelectionHighlight
 import GenerationProgress from '@/components/sub-components/GenerationProgress'
 import TtsControls from '@/components/sub-components/TtsControls'
 import ReportContentButton from '@/components/sub-components/ReportContentButton'
+import { readJson } from '@/lib/http/read-json'
 import ArtifactFrame from '@/components/sub-components/ArtifactFrame'
 import RetrievalPractice from '@/components/sub-components/RetrievalPractice'
 import { useGenerationJob } from '@/lib/jobs/useGenerationJob'
@@ -195,10 +196,10 @@ export default function LearnPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             })
-            const result = await response.json()
-            if (!response.ok) {
-                throw new Error(result.error || 'Generation failed')
-            }
+            // readJson, not response.json(): a timed-out request returns an HTML
+            // error page, and parsing that would report a JSON syntax error
+            // instead of the timeout that actually happened.
+            const result = await readJson(response, 'Generation failed')
             toast.success('Content generated successfully!')
             setTopic({ ...topic, content: result.content })
         }

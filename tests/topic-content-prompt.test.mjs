@@ -7,7 +7,8 @@ import {
   buildSectionPrompt,
   buildLedgerExtractionPrompt,
   buildVerificationPrompt,
-  cleanTopicContent
+  cleanTopicContent,
+  sectionProgress
 } from '../lib/ai/pipelines/topic-content-prompt.js'
 
 describe('buildPersonalizationContext', () => {
@@ -183,5 +184,38 @@ describe('cleanTopicContent', () => {
   test('empty / nullish input yields empty string', () => {
     assert.equal(cleanTopicContent(''), '')
     assert.equal(cleanTopicContent(null), '')
+  })
+})
+
+describe('sectionProgress', () => {
+  test('keeps section writing inside the 15%-65% band', () => {
+    // Room is deliberately reserved either side: grounding + outline run before,
+    // finalize + ledger + verify after. A section must never report 100%.
+    for (const total of [1, 3, 7, 12]) {
+      for (let i = 0; i < total; i += 1) {
+        const pct = sectionProgress(i, total)
+        assert.ok(pct >= 15 && pct < 65, `section ${i}/${total} gave ${pct}`)
+      }
+    }
+  })
+
+  test('increases monotonically across sections', () => {
+    let prev = -1
+    for (let i = 0; i < 8; i += 1) {
+      const pct = sectionProgress(i, 8)
+      assert.ok(pct >= prev, `progress went backwards at ${i}`)
+      prev = pct
+    }
+  })
+
+  test('starts the band at 15 for the first section', () => {
+    assert.equal(sectionProgress(0, 5), 15)
+  })
+
+  test('survives a zero or missing total instead of returning NaN', () => {
+    // A NaN would be written straight into generation_jobs.progress, which has a
+    // 0-100 CHECK constraint, and the write would fail the whole job.
+    assert.equal(sectionProgress(0, 0), 15)
+    assert.equal(sectionProgress(2, undefined), 15)
   })
 })

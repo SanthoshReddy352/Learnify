@@ -303,7 +303,42 @@ not know which one did it.
 
 Add each flag to `.env` **and** Vercel, then redeploy.
 
-### 6.1 — `CONTENT_LEDGER=true` ← start here
+> ### 🔴 ON VERCEL HOBBY, DO 6.4 FIRST. Read this before flipping anything.
+>
+> Generation takes **~100 seconds** and runs on the request path unless async is on.
+> Every flag in 6.1–6.3 makes it **longer** (`CONTENT_LEDGER` adds a whole extra AI
+> call; grounding adds web fetches).
+>
+> **Vercel Hobby caps every function at 60 seconds and that cap cannot be raised.**
+> The synchronous path therefore *cannot* finish a generation on Hobby — the platform
+> kills the request and serves an HTML error page, which the browser reports as
+> `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`. **That message means
+> "timed out", not "bad JSON".**
+>
+> **So on Hobby the order is: 6.4 → 6.1 → 6.2 → 6.3 → 6.5 …**
+>
+> #### Why raising `maxDuration` is not the answer
+>
+> A `maxDuration` above your plan's limit **fails the build outright** — it is not
+> clamped and it is not a warning. Both routes are pinned to `60` for exactly this
+> reason. *(If you move to Pro, raise both to `300`: `app/api/inngest/route.js` and
+> `app/api/generate-topic-content/route.js`.)*
+>
+> #### Why async generation works anyway
+>
+> Inngest does not run your code on Inngest's servers — it calls back into
+> `/api/inngest`, which is an ordinary Vercel function under the same 60s cap. What
+> makes it work is that **each `step.run()` is a separate invocation with its own
+> fresh 60s budget**, and finished steps are memoized. The worker is written as
+> steps — outline, then one step per section, then finalize/ledger/verify/save — so
+> a lesson runs as ~8–16 short invocations and can take as long in total as it needs
+> while no single one goes near the cap. A retry also resumes from the last completed
+> step rather than re-paying for the whole lesson.
+>
+> Consequence worth knowing: **the worker always generates section-by-section**,
+> regardless of `CONTENT_SECTIONED`. That flag governs the *synchronous* route only.
+
+### 6.1 — `CONTENT_LEDGER=true` ← start here on Pro. **On Hobby, do 6.4 first.**
 
 **Turns on:** concept-ledger extraction after each lesson, and continuity between topics.
 
@@ -352,6 +387,17 @@ select kind, status, progress, stage from generation_jobs order by created_at de
 The newest row should reach `succeeded`.
 
 ⚠️ **This is a `NEXT_PUBLIC_` flag — it needs a full rebuild, not a restart.**
+
+**On Hobby this is not optional and not last — it is the step that makes generation
+work at all.** Do it before 6.1. If you flip it and generation still fails, the cause
+is almost always one of: the Inngest **event key** missing (the enqueue call needs it),
+the app not synced, or `SUPABASE_SERVICE_ROLE_KEY` missing (the worker refuses to start
+without it and says so in `generation_jobs.error`).
+
+Useful when debugging — the job row records its own failure:
+```sql
+select status, stage, progress, error from generation_jobs order by created_at desc limit 5;
+```
 
 ### 6.5 — `USER_MEMORY=true`
 
@@ -459,8 +505,17 @@ stop being read.
 tables and add new nullable columns. Nothing was dropped, renamed, or altered, so no
 existing query can break.
 
-**If generation fails:** check the provider order problem in Step 3.2 first. That is the
-most likely cause.
+**If generation fails with `Unexpected token '<', "<!DOCTYPE "...`:** that is a **timeout**,
+not a JSON problem — the platform killed the request and returned an HTML error page. On
+Hobby the synchronous path cannot finish a generation; turn on `NEXT_PUBLIC_ASYNC_GENERATION`
+(step 6.4). The client now reports this in plain language instead of the parser error.
+
+**If a deployment fails to build:** check for a `maxDuration` above your plan's ceiling
+(60 on Hobby, 300 on Pro). That is a hard build failure, and the error message names the
+limit.
+
+**If generation fails for any other reason:** check the provider order problem in Step 3.2
+first. That is the most likely cause.
 
 **If a feature silently does nothing:** its flag is on but its table is missing, or its
 env var is absent. Every path fails soft by design — which is safe, but does mean "nothing

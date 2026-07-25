@@ -11,6 +11,21 @@ import { reportError } from '@/lib/observability/report'
 // AI image generation are deferred — diagrams are validated and self-repaired
 // server-side before content is saved (lib/ai/mermaid.js).
 
+// This route runs the WHOLE generation pipeline on the request path, which takes
+// ~100s and grows with every optional stage (grounding, sectioning, the P6.5
+// ledger extraction, the P6.6 verification pass). Without this the platform kills
+// the request at its default timeout and returns an HTML error page, which the
+// client then fails to parse as JSON — a confusing symptom for a simple timeout.
+//
+// 60 is the Vercel HOBBY ceiling, and a maxDuration above your plan's limit is a
+// BUILD FAILURE, not a warning — so this value cannot simply be raised "just in
+// case". On Pro, raise it to 300.
+//
+// 60s is still not enough for a full generation (~100s and growing), so on Hobby
+// the fix is not this number — it is running generation as Inngest steps, where
+// each step is its own invocation with its own 60s budget.
+export const maxDuration = 60
+
 export async function POST(request) {
   try {
     const supabase = await createClient()
