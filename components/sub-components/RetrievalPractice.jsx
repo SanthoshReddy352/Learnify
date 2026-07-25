@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Brain, Loader2, Check, X, AlertTriangle, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { readJson } from '@/lib/http/read-json'
 
 // In-lesson retrieval practice with confidence calibration (Plan P9.2).
 //
@@ -36,29 +37,48 @@ export default function RetrievalPractice({
   const [confidence, setConfidence] = useState(null)
   const [outcome, setOutcome] = useState(null)
 
+  // `null` = not looked yet, `[]` = looked and the bank is empty for this topic.
+  // Distinguishing them is what lets the idle state say the right thing.
+  const [checked, setChecked] = useState(false)
+
   const current = items?.[index] || null
 
-  const loadItems = async () => {
-    setLoading(true)
+  const loadItems = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true)
     try {
       const res = await fetch('/api/practice/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topicId, limit: 3, classroomId, classroomCourseId })
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Could not load practice questions')
+      const data = await readJson(res, 'Could not load practice questions')
       setItems(data.items || [])
       setIndex(0)
-      resetQuestion()
+      setChosen(null)
+      setConfidence(null)
+      setOutcome(null)
       return data.items || []
     } catch (e) {
-      toast.error(e.message)
+      // A silent background check must not throw a toast at someone who never
+      // asked for one.
+      if (!silent) toast.error(e.message)
       return []
     } finally {
-      setLoading(false)
+      setChecked(true)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [topicId, classroomId, classroomCourseId])
+
+  // Saved questions are loaded on mount. Without this the component always came
+  // up on its "Quiz me on this" button, so a learner who had generated questions
+  // earlier came back to what looked like an empty slate and concluded nothing
+  // had been saved — the bank was there the whole time, just never asked for.
+  const lastLoadedTopic = useRef(null)
+  useEffect(() => {
+    if (!topicId || lastLoadedTopic.current === topicId) return
+    lastLoadedTopic.current = topicId
+    loadItems({ silent: true })
+  }, [topicId, loadItems])
 
   const buildItems = async () => {
     setGenerating(true)
@@ -68,10 +88,15 @@ export default function RetrievalPractice({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subjectId, topicId, itemCount: 5 })
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Could not build practice questions')
+      const data = await readJson(res, 'Could not build practice questions')
       if (!data.stored) {
-        toast.message('Questions were generated but not saved yet — practice storage is not enabled.')
+        // Say WHY. "Not saved" with no reason is indistinguishable from a bug,
+        // and the server now tells us whether storage is off or the write failed.
+        toast.message(
+          data.storageError
+            ? `Questions were generated but not saved: ${data.storageError}`
+            : 'Questions were generated but not saved yet — practice storage is not enabled.'
+        )
         return
       }
       await loadItems()
@@ -118,7 +143,18 @@ export default function RetrievalPractice({
     setIndex((i) => i + 1)
   }
 
-  // Nothing loaded yet.
+  // Still doing the silent on-mount check — say nothing rather than flashing an
+  // empty state that is about to be replaced.
+  if (!items && !checked) {
+    return (
+      <div className={`rounded-xl border border-border border-dashed bg-foreground/5 p-8 flex items-center justify-center ${className}`}>
+        <Loader2 className="h-5 w-5 animate-spin text-primary/70" aria-hidden="true" />
+        <span className="sr-only">Loading practice questions</span>
+      </div>
+    )
+  }
+
+  // The check failed (offline, server error). Offer a manual retry.
   if (!items) {
     return (
       <div className={`rounded-xl border border-border border-dashed bg-foreground/5 p-8 flex flex-col items-center text-center ${className}`}>
@@ -126,7 +162,7 @@ export default function RetrievalPractice({
         <p className="text-sm text-muted-foreground mb-4 max-w-md">
           Testing yourself beats re-reading. Try a couple of questions on what you just read.
         </p>
-        <Button onClick={loadItems} disabled={loading} variant="outline" className="border-primary/30 hover:bg-primary/10 text-primary">
+        <Button onClick={() => loadItems()} disabled={loading} variant="outline" className="border-primary/30 hover:bg-primary/10 text-primary">
           {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Brain className="mr-2 h-4 w-4" />}
           {loading ? 'Loading questions…' : 'Quiz me on this'}
         </Button>
@@ -165,7 +201,7 @@ export default function RetrievalPractice({
         <p className="text-sm text-muted-foreground mb-4 m-0">
           That is the set. Anything you missed will come back in your reviews.
         </p>
-        <Button onClick={loadItems} variant="outline" size="sm">Practice again</Button>
+        <Button onClick={() => loadItems()} variant="outline" size="sm">Practice again</Button>
       </div>
     )
   }

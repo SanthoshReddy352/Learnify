@@ -8,7 +8,9 @@ import {
   ITEM_PUBLIC_COLUMNS,
   GRADABLE_KINDS,
   isGradable,
-  normalizeGeneratedItems
+  normalizeGeneratedItems,
+  normalizeGeneratedItemsWithReport,
+  summarizeDropped
 } from '../lib/assessment/items.js'
 import {
   PASS_SCORE,
@@ -405,5 +407,67 @@ describe('aiAssessmentItemsSchema', () => {
 
   test('rejects an empty item list', () => {
     assert.ok(!aiAssessmentItemsSchema.safeParse({ items: [] }).success)
+  })
+})
+
+describe('normalizeGeneratedItemsWithReport', () => {
+  const opts = { subjectId: 'sub-1', topicId: 'top-1' }
+
+  test('reports WHY each item was dropped, not just that it was', () => {
+    // Silent drops were the bug: a bad batch surfaced as "no usable items" with
+    // nothing anywhere saying which rule rejected them.
+    const { rows, dropped } = normalizeGeneratedItemsWithReport([
+      { kind: 'mcq', concept: 'A', stem: 'ok?', options: ['x', 'y'], correct_index: 0 },
+      { kind: 'mcq', concept: 'B', stem: 'bad index?', options: ['x', 'y'], correct_index: 7 },
+      { kind: 'mcq', concept: 'C', stem: 'one option?', options: ['only'], correct_index: 0 },
+      { kind: 'why', concept: 'D', stem: 'why?' },
+      { kind: 'mcq', concept: '', stem: 'no concept?', options: ['x', 'y'], correct_index: 0 },
+      { kind: 'mcq', concept: 'F', stem: '', options: ['x', 'y'], correct_index: 0 }
+    ], opts)
+
+    assert.equal(rows.length, 1)
+    assert.equal(dropped.length, 5)
+    const reasons = dropped.map((d) => d.reason)
+    assert.ok(reasons.some((r) => /out of range/.test(r)))
+    assert.ok(reasons.some((r) => /only 1 option/.test(r)))
+    assert.ok(reasons.some((r) => /no model answer/.test(r)))
+    assert.ok(reasons.some((r) => /missing concept/.test(r)))
+    assert.ok(reasons.some((r) => /missing stem/.test(r)))
+  })
+
+  test('a clean batch reports no drops', () => {
+    const { rows, dropped } = normalizeGeneratedItemsWithReport([
+      { kind: 'mcq', concept: 'A', stem: 'q?', options: ['x', 'y'], correct_index: 1 }
+    ], opts)
+    assert.equal(rows.length, 1)
+    assert.deepEqual(dropped, [])
+  })
+
+  test('normalizeGeneratedItems still returns just the rows', () => {
+    const rows = normalizeGeneratedItems([
+      { kind: 'mcq', concept: 'A', stem: 'q?', options: ['x', 'y'], correct_index: 1 }
+    ], opts)
+    assert.ok(Array.isArray(rows))
+    assert.equal(rows.length, 1)
+  })
+
+  test('missing subjectId yields an empty report rather than throwing', () => {
+    const { rows, dropped } = normalizeGeneratedItemsWithReport([{ kind: 'mcq' }], {})
+    assert.deepEqual(rows, [])
+    assert.deepEqual(dropped, [])
+  })
+})
+
+describe('summarizeDropped', () => {
+  test('aggregates repeated reasons into counts', () => {
+    const summary = summarizeDropped([
+      { reason: 'missing stem' }, { reason: 'missing stem' }, { reason: 'only 1 option(s)' }
+    ])
+    assert.match(summary, /2× missing stem/)
+    assert.match(summary, /1× only 1 option/)
+  })
+
+  test('is empty when nothing was dropped', () => {
+    assert.equal(summarizeDropped([]), '')
   })
 })
