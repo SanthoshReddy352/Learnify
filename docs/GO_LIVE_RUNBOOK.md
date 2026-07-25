@@ -514,6 +514,24 @@ Hobby the synchronous path cannot finish a generation; turn on `NEXT_PUBLIC_ASYN
 (60 on Hobby, 300 on Pro). That is a hard build failure, and the error message names the
 limit.
 
+**If a job sits in `generation_jobs` at `status = 'queued'` with `started_at` null and no
+error:** the event reached Inngest but nothing ran it. The row being created and the
+enqueue returning `202` only prove the *enqueue* route works — that route does not import
+the worker. Check the serve endpoint itself:
+
+```bash
+curl -i https://your-domain/api/inngest
+```
+
+- **500** → the serve route is crashing at import time, so Inngest can neither sync nor
+  invoke anything. Read the Vercel runtime logs for that route. (This happened on
+  2026-07-25: a jsdom dependency broke, and because the worker's import chain pulled jsdom
+  in statically, `/api/inngest` died while `/enqueue` kept happily returning 202 — jobs
+  queued forever with no error anywhere.)
+- **404** → the route is not deployed.
+- **JSON listing your functions** → the endpoint is healthy; the app just is not synced.
+  Sync it in the Inngest dashboard, or check `INNGEST_EVENT_KEY`.
+
 **If generation fails for any other reason:** check the provider order problem in Step 3.2
 first. That is the most likely cause.
 
