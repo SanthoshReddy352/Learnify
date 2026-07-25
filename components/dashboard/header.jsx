@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { User, Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
   Tooltip,
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/tooltip"
 
 export function Header({ setSidebarOpen }) {
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const supabase = createClient()
 
@@ -23,7 +25,7 @@ export function Header({ setSidebarOpen }) {
   }, [])
 
   return (
-    <header className="fixed top-0 right-0 left-0 h-[calc(4rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] bg-background/50 backdrop-blur-md border-b border-white/5 z-30 flex items-center justify-between md:justify-end px-4 md:px-8">
+    <header className="fixed top-0 right-0 left-0 h-[calc(4rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] bg-background/50 backdrop-blur-md border-b border-border/60 z-30 flex items-center justify-between md:justify-end px-4 md:px-8">
         {/* Mobile Menu Trigger */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -40,16 +42,20 @@ export function Header({ setSidebarOpen }) {
         </Tooltip>
 
         <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden md:inline-block">
+            <span className="text-sm text-muted-foreground hidden md:inline-block max-w-[220px] truncate">
                 {user?.email}
             </span>
              <Tooltip>
                <TooltipTrigger asChild>
-                 <div className="pointer-events-auto cursor-help">
-                   <Button variant="ghost" className="h-8 w-8 rounded-full bg-primary/10 p-0 border border-primary/20 hover:bg-primary/20 transition-colors pointer-events-none">
-                      <User className="h-4 w-4 text-primary" />
-                  </Button>
-                 </div>
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Open profile"
+                    onClick={() => router.push('/dashboard/profile')}
+                    className="h-8 w-8 rounded-full bg-primary/10 p-0 border border-primary/20 hover:bg-primary/20 transition-colors"
+                 >
+                    <User className="h-4 w-4 text-primary" />
+                 </Button>
                </TooltipTrigger>
                <TooltipContent side="bottom">User Profile</TooltipContent>
              </Tooltip>

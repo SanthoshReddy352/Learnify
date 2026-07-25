@@ -65,6 +65,28 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Teacher heatmap ramp (Plan P12.1).
+     *
+     * A SEQUENTIAL single-hue ramp, and the quantity it encodes is deliberately
+     * CONCERN rather than mastery — on a mastery ramp the cells a teacher needs
+     * to spot would be the palest and would recede. Orange because that is
+     * already this app's "needs attention" hue, and because a blue concern ramp
+     * would collide with --primary.
+     *
+     * Validated with the dataviz skill's validator against this app's own card
+     * surfaces (#ffffff light / #0b0b0e dark): lightness monotone, adjacent ΔL
+     * >= 0.06, single hue (spread 10-11 degrees). The lightest step sits below
+     * 2:1 against the surface by design — that is the documented sequential
+     * allowance ("near zero" may recede), not an oversight.
+     *
+     * Steps 1-4 = least to most concerning. `empty` is NOT on the ramp: a topic
+     * nobody has reached yet is normal pacing, not a problem. */
+    --heat-1: #fdece3;
+    --heat-2: #f9bb98;
+    --heat-3: #f07f45;
+    --heat-4: #c2470f;
+    --heat-progress: #e6e6e9;
   }
 
   .dark {
@@ -111,6 +133,15 @@
     --sidebar-ring: 220 90% 50%;
 
     --pattern-fg: rgba(0, 0, 0, 0.2);
+
+    /* Dark heatmap ramp — the same hue re-stepped for the dark surface (see the
+     * :root block), not an automatic inversion. Concern still increases with the
+     * step number, so dark mode runs surface-dark -> bright. */
+    --heat-1: #3d2114;
+    --heat-2: #7a3a1a;
+    --heat-3: #c05323;
+    --heat-4: #f59b5f;
+    --heat-progress: #26282c;
   }
 }
 
@@ -127,7 +158,7 @@
     @apply border-border;
     /* Custom scrollbar styling */
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    scrollbar-color: hsl(var(--foreground) / 0.15) transparent;
   }
 
   /* Webkit scrollbar styling */
@@ -143,12 +174,12 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: hsl(var(--foreground) / 0.15);
     border-radius: 10px;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: hsl(var(--foreground) / 0.25);
   }
 
   html,
@@ -169,7 +200,7 @@
   }
 
   .glass-card {
-    @apply bg-card/50 backdrop-blur-md border border-foreground/5;
+    @apply bg-card/50 backdrop-blur-md border border-foreground/10;
   }
 
   .text-glow {
@@ -206,7 +237,7 @@
   .custom-scrollbar {
     scrollbar-width: thin;
     /* Firefox */
-    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    scrollbar-color: hsl(var(--foreground) / 0.15) transparent;
     /* Firefox */
   }
 
@@ -221,12 +252,12 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: hsl(var(--foreground) / 0.15);
     border-radius: 3px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: hsl(var(--foreground) / 0.25);
     display: block !important;
   }
 }

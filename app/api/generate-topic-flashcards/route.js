@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { generateWithGemini } from '@/lib/gemini'
+import { generateObjectWithFallback } from '@/lib/ai/generate'
+import { aiFlashcardsSchema } from '@/lib/validation/schemas'
 import { resolveTopicAccess } from '@/lib/classrooms/access'
 
 export async function POST(request) {
@@ -15,6 +16,7 @@ export async function POST(request) {
     const body = await request.json()
     const { topicId, topicTitle, topicDescription, content, classroomId, classroomCourseId } = body
 
+  
     if (!topicId || !topicTitle) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
@@ -41,14 +43,12 @@ export async function POST(request) {
         })
     }
 
-    // === FETCH USER'S API KEY ===
-    const { data: userData, error: userError } = await supabase
-      .from('profiles')
-      .select('gemini_api_key')
+    // === FETCH USER'S AI PROVIDER CONFIG ===
+    const { data: userSecrets } = await supabase
+      .from('user_secrets')
+      .select('*')
       .eq('id', user.id)
       .maybeSingle()
-
-    const userApiKey = userData?.gemini_api_key
 
     const effectiveTitle = topicTitle || existingTopic?.title || 'Untitled Topic'
     const effectiveDescription = topicDescription || existingTopic?.description || effectiveTitle
@@ -67,49 +67,26 @@ export async function POST(request) {
     ${subjectContext ? `${subjectContext}\n` : ''}
 
     goals:
-    1. Summarize key concepts into short Questions (Front) and Answers (Back).
+    1. Summarize key concepts into short Questions (front) and Answers (back).
     2. Answers MUST be brief (1-3 sentences max).
     3. Focus on high-level understanding and key facts.
-    4. Output strictly as a JSON Array of objects with keys: "front", "back".
-    
-    Example Output:
-    [
-        { "front": "What is Photosynthesis?", "back": "The process by which plants convert light energy into chemical energy." },
-        { "front": "Key inputs?", "back": "Sunlight, Water, and Carbon Dioxide." }
-    ]
-    
-    Return ONLY the JSON array.`
+
+    Output shape: a JSON object with a "flashcards" array, each item having
+    "front" (the question) and "back" (the answer). Example:
+    { "flashcards": [ { "front": "What is X?", "back": "X is ..." } ] }`
 
     console.log(`Generating flashcards for topic: ${effectiveTitle}`)
 
-    const response = await generateWithGemini([
-          { role: 'system', content: 'You are a helpful AI that generates JSON flashcards.' },
-          { role: 'user', content: flashcardPrompt }
-    ], {
-      apiKey: userApiKey,
-      temperature: 0.5 
+    // Schema-validated structured output — no JSON-out-of-markdown parsing.
+    const result = await generateObjectWithFallback({
+      schema: aiFlashcardsSchema,
+      system: 'You are a helpful AI tutor that generates flashcards.',
+      prompt: flashcardPrompt,
+      temperature: 0.5,
+      userSecrets
     })
 
-    let rawContent = response.choices?.[0]?.message?.content
-
-    if (!rawContent) {
-        throw new Error('AI returned empty content')
-    }
-
-    // Cleanup: Remove markdown wrapping
-    rawContent = rawContent.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim()
-    
-    let flashcards = []
-    try {
-        flashcards = JSON.parse(rawContent)
-    } catch (e) {
-        console.error('Failed to parse flashcards JSON:', rawContent)
-        throw new Error('AI returned invalid JSON format')
-    }
-
-    if (!Array.isArray(flashcards)) {
-         throw new Error('AI returned invalid structure (not an array)')
-    }
+    const flashcards = result.flashcards
 
     // === SAVE TO DATABASE ===
     const writer = topicAccess.adminClient || supabase

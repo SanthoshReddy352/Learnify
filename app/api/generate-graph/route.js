@@ -1,7 +1,9 @@
+import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { updateUnlockedTopics } from '@/lib/actions'
-import { generateWithGemini } from '@/lib/gemini'
+import { generateObjectWithFallback } from '@/lib/ai/generate'
+import { generateGraphRequestSchema, aiCurriculumSchema, parseOr400 } from '@/lib/validation/schemas'
 
 function normalizeOptionalText(value) {
   return String(value || '')
@@ -18,12 +20,11 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { subjectId, seedText, difficulty = 3, totalMinutes = 300 } = body
-
-    if (!subjectId) {
-      return NextResponse.json({ error: 'Missing subject id' }, { status: 400 })
+    const parsed = parseOr400(generateGraphRequestSchema, await request.json())
+    if (parsed.error) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
+    const { subjectId, seedText, difficulty, totalMinutes } = parsed.data
 
     // Verify subject belongs to user
     const { data: subject, error: subjectError } = await supabase
@@ -61,9 +62,9 @@ export async function POST(request) {
     }
 
     // === FETCH USER'S API KEY ===
-    const { data: userData, error: userError } = await supabase
-      .from('profiles')
-      .select('gemini_api_key')
+    const { data: userSecrets, error: userError } = await supabase
+      .from('user_secrets')
+      .select('*')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -72,9 +73,7 @@ export async function POST(request) {
       // Don't fail hard, just log and continue without user key
     }
 
-    const userApiKey = userData?.gemini_api_key
-    
-    // Don't block if no user key - let generateWithGemini use fallback keys
+    // Don't block if no user key - the provider registry falls back to system keys
     // if (!userApiKey) { ... } -> Removed
 
     // === FETCH EXISTING TOPICS FIRST (for AI-aware deduplication) ===
@@ -177,42 +176,25 @@ Course Context:
 ${subjectContext}`
 
 
-    console.log('Generating curriculum with Gemini...')
-    
-    const responseData = await generateWithGemini([
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: `Generate curriculum for subject "${subject.title}". Use any provided description, syllabus, and instructions when present. If the context is sparse, infer a strong general-purpose roadmap from the title alone without asking follow-up questions.`
-      }
-    ], {
-      maxOutputTokens: 8000,
-      apiKey: userApiKey
-    })
+    console.log('Generating curriculum (structured output)...')
 
-    const content = responseData.choices[0].message.content
-
-    if (!content) {
-      return NextResponse.json({ error: 'No response from AI' }, { status: 500 })
-    }
-
-    // Parse JSON from AI response
+    // Schema-enforced structured output: the SDK validates the DAG against
+    // aiCurriculumSchema, so there is no JSON-out-of-markdown parsing.
     let curriculum
     try {
-      // Remove markdown code blocks if present (Gemini sometimes wraps in ```)
-      const cleanContent = content.replace(/```json/gi, '').replace(/```/g, '').trim()
-      curriculum = JSON.parse(cleanContent)
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', content.slice(0, 500))
-      return NextResponse.json({ 
-        error: 'AI returned invalid JSON',
-        rawResponse: content.slice(0, 200) 
-      }, { status: 500 })
-    }
-
-    // Validate curriculum structure
-    if (!curriculum.topics || !Array.isArray(curriculum.topics)) {
-      return NextResponse.json({ error: 'Invalid curriculum format' }, { status: 500 })
+      curriculum = await generateObjectWithFallback({
+        schema: aiCurriculumSchema,
+        system: systemPrompt,
+        prompt: `Generate curriculum for subject "${subject.title}". Use any provided description, syllabus, and instructions when present. If the context is sparse, infer a strong general-purpose roadmap from the title alone without asking follow-up questions.`,
+        maxOutputTokens: 16000,
+        userSecrets
+      })
+    } catch (aiError) {
+      console.error('Curriculum generation failed:', aiError)
+      return NextResponse.json({
+        error: 'AI failed to generate a valid curriculum',
+        details: String(aiError?.message || aiError).slice(0, 300)
+      }, { status: 502 })
     }
 
     // Validate no cycles in DAG
@@ -230,13 +212,15 @@ ${subjectContext}`
       })
     }
 
-    // Insert or reuse topics
+    // Insert or reuse topics — IDs are generated here so all new topics and
+    // dependencies land in two bulk inserts instead of one request per row.
     const slugToIdMap = {}
     const insertedTopics = []
+    const newTopicRows = []
 
     for (const topic of curriculum.topics) {
       const normalizedTitle = topic.title.toLowerCase().trim()
-      
+
       // Check if topic already exists
       if (existingTopicMap.has(normalizedTitle)) {
         const existingId = existingTopicMap.get(normalizedTitle)
@@ -246,55 +230,64 @@ ${subjectContext}`
         continue
       }
 
-      // Topic is new, insert it
-      const { data: insertedTopic, error: insertError } = await supabase
-        .from('topics')
-        .insert([{
-          subject_id: subjectId,
-          title: topic.title,
-          description: topic.description || '',
-          content: topic.description || '',
-          estimated_minutes: topic.estimatedMinutes || 30,
-          difficulty: topic.difficulty || difficulty,
-          status: 'locked' // Will be unlocked by unlock engine
-        }])
-        .select()
-        .single()
-
-      if (insertError) {
-        console.error('Error inserting topic:', insertError)
-        continue
-      }
-
-      slugToIdMap[topic.slug] = insertedTopic.id
-      insertedTopics.push(insertedTopic)
+      const newId = randomUUID()
+      slugToIdMap[topic.slug] = newId
+      newTopicRows.push({
+        id: newId,
+        subject_id: subjectId,
+        title: topic.title,
+        description: topic.description || '',
+        content: topic.description || '',
+        estimated_minutes: topic.estimatedMinutes || 30,
+        difficulty: topic.difficulty || difficulty,
+        status: 'locked' // Will be unlocked by unlock engine
+      })
     }
 
-    // Insert dependencies
-    const insertedDependencies = []
-    for (const topic of curriculum.topics) {
-      if (topic.dependencies && topic.dependencies.length > 0) {
-        const topicId = slugToIdMap[topic.slug]
-        
-        for (const depSlug of topic.dependencies) {
-          const dependsOnId = slugToIdMap[depSlug]
-          
-          if (topicId && dependsOnId) {
-            const { data: dep, error: depError } = await supabase
-              .from('topic_dependencies')
-              .insert([{
-                subject_id: subjectId,
-                topic_id: topicId,
-                depends_on_topic_id: dependsOnId
-              }])
-              .select()
-              .single()
+    if (newTopicRows.length > 0) {
+      const { data: inserted, error: insertError } = await supabase
+        .from('topics')
+        .insert(newTopicRows)
+        .select('id, title')
 
-            if (!depError && dep) {
-              insertedDependencies.push(dep)
-            }
-          }
+      if (insertError) {
+        console.error('Error inserting topics:', insertError)
+        return NextResponse.json({ error: 'Failed to save generated topics' }, { status: 500 })
+      }
+      insertedTopics.push(...(inserted || []))
+    }
+
+    // Insert dependencies in one bulk request (duplicates against existing
+    // links are skipped by the unique constraint via upsert-ignore)
+    const dependencyRows = []
+    for (const topic of curriculum.topics) {
+      const topicId = slugToIdMap[topic.slug]
+      for (const depSlug of topic.dependencies || []) {
+        const dependsOnId = slugToIdMap[depSlug]
+        if (topicId && dependsOnId && topicId !== dependsOnId) {
+          dependencyRows.push({
+            subject_id: subjectId,
+            topic_id: topicId,
+            depends_on_topic_id: dependsOnId
+          })
         }
+      }
+    }
+
+    let insertedDependencies = []
+    if (dependencyRows.length > 0) {
+      const { data: deps, error: depsInsertError } = await supabase
+        .from('topic_dependencies')
+        .upsert(dependencyRows, {
+          onConflict: 'topic_id,depends_on_topic_id',
+          ignoreDuplicates: true
+        })
+        .select()
+
+      if (depsInsertError) {
+        console.error('Error inserting dependencies:', depsInsertError)
+      } else {
+        insertedDependencies = deps || []
       }
     }
 

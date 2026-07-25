@@ -78,7 +78,7 @@ export function Navbar() {
                <Tooltip>
                  <TooltipTrigger asChild>
                    <div>
-                    <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-white/5" />
+                    <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-foreground/5" />
                    </div>
                  </TooltipTrigger>
                  <TooltipContent side="bottom">Switch Theme</TooltipContent>
@@ -97,14 +97,14 @@ export function Navbar() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
-                    <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-white/5" />
+                    <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-foreground/5" />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Switch Theme</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" onClick={() => router.push('/login')} className="text-muted-foreground hover:text-foreground hover:bg-white/5 rounded-full">
+                  <Button variant="ghost" size="sm" onClick={() => router.push('/login')} className="text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-full">
                     Sign In
                   </Button>
                 </TooltipTrigger>

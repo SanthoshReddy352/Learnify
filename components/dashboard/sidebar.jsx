@@ -52,7 +52,9 @@ export function Sidebar({ open, setOpen }) {
     }
 
     loadRoleInfo()
-  }, [pathname])
+    // Role/invite info rarely changes; fetch once per mount instead of on
+    // every route change.
+  }, [])
 
   const isActive = (path) => {
     if (path === '/') {
@@ -67,7 +69,7 @@ export function Sidebar({ open, setOpen }) {
       <TooltipTrigger asChild>
         <Button
           variant="ghost"
-          className={`w-full ${open ? 'justify-start px-4' : 'justify-center px-2'} hover:bg-white/5 data-[active=true]:bg-primary/10 data-[active=true]:text-primary`}
+          className={`w-full ${open ? 'justify-start px-4' : 'justify-center px-2'} hover:bg-foreground/5 data-[active=true]:bg-primary/10 data-[active=true]:text-primary`}
           onClick={onClick}
           data-active={isActive(path)}
         >
@@ -91,7 +93,7 @@ export function Sidebar({ open, setOpen }) {
         ${open ? 'md:w-64' : 'md:w-[70px]'}
       `}
     >
-      <div className="flex items-center justify-between border-b border-white/5 p-4">
+      <div className="flex items-center justify-between border-b border-border/60 p-4">
         <Tooltip>
           <TooltipTrigger asChild>
             <div
@@ -131,7 +133,7 @@ export function Sidebar({ open, setOpen }) {
           <TooltipTrigger asChild>
             <div>
               <ThemeToggle
-                className={`w-full ${open ? 'justify-start px-4' : 'justify-center px-2'} mb-2 hover:bg-white/5`}
+                className={`w-full ${open ? 'justify-start px-4' : 'justify-center px-2'} mb-2 hover:bg-foreground/5`}
               />
             </div>
           </TooltipTrigger>
@@ -201,7 +203,7 @@ export function Sidebar({ open, setOpen }) {
           onClick={() => router.push('/dashboard/profile')}
         />
 
-        <div className="mt-auto space-y-2 border-t border-white/5 pt-4">
+        <div className="mt-auto space-y-2 border-t border-border/60 pt-4">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

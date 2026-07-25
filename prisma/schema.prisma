@@ -1,0 +1,335 @@
+// ============================================================
+// Learnify database schema — source of truth mirror of production
+// (Supabase project bljhrkulhkokfdpwwvlc, public schema).
+//
+// Generated from live introspection on 2026-07-22.
+//
+// ROLE OF THIS FILE:
+//   - Documentation + drift detection for the production schema.
+//   - Refresh from production any time with: yarn db:pull
+//     (requires DATABASE_URL in .env / scripts/.env.schema)
+//   - Runtime data access stays on @supabase/supabase-js so RLS
+//     policies keep applying. Do NOT wire Prisma Client into app
+//     code without deciding an RLS strategy first.
+//
+// NOT REPRESENTED HERE (Postgres features Prisma can't model):
+//   - RLS policies (see schema/production_schema.sql via scripts/dump-schema.ps1)
+//   - CHECK constraints (documented as /// comments per field)
+//   - Cross-schema FKs to auth.users (modeled as plain uuid columns)
+//   - Functions/triggers (handle_new_user, update_updated_at_column)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  id                       String    @id @db.Uuid
+  username                 String?   @unique
+  display_name             String?
+  avatar_url               String?
+  full_name                String?
+  /// High School, Undergraduate, Graduate, PhD, Self-Taught, etc.
+  education_level          String?
+  learning_goals           String?
+  /// Visual, Auditory, Reading/Writing, Kinesthetic, Project-based
+  preferred_learning_style String?
+  learning_schedule        String?
+  occupation               String?
+  created_at               DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@map("profiles")
+}
+
+model UserSecret {
+  /// FK -> auth.users.id (cross-schema, not modeled). Owner-only RLS.
+  id                  String   @id @db.Uuid
+  gemini_api_key      String?
+  huggingface_api_key String?
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("user_secrets")
+}
+
+model Subject {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  user_id     String   @db.Uuid
+  title       String
+  description String?
+  syllabus    String?
+  cheat_sheet String?
+  is_public   Boolean? @default(false)
+  created_at  DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at  DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+
+  topics             Topic[]
+  topic_dependencies TopicDependency[]
+  study_logs         StudyLog[]
+  saved_layouts      SavedGraphLayout[]
+  clones_as_original SharedSubjectClone[] @relation("OriginalSubject")
+  clones_as_clone    SharedSubjectClone[] @relation("ClonedSubject")
+  classroom_courses  ClassroomCourse[]
+
+  @@map("subjects")
+}
+
+model Topic {
+  id                String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  subject_id        String    @db.Uuid
+  title             String
+  description       String?
+  content           String?
+  estimated_minutes Int?      @default(30)
+  /// CHECK: difficulty >= 1 AND difficulty <= 5
+  difficulty        Int?      @default(3)
+  /// CHECK: status IN ('locked','available','learning','reviewing','mastered')
+  status            String?   @default("locked")
+  interval_days     Int?      @default(0)
+  repetition_count  Int?      @default(0)
+  difficulty_factor Decimal?  @default(2.5) @db.Decimal
+  next_review_at    DateTime? @db.Timestamptz(6)
+  /// AI-generated flashcards for this topic
+  flashcards        Json?
+  user_notes        String?
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+
+  subject          Subject               @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  dependencies     TopicDependency[]     @relation("DependentTopic")
+  dependents       TopicDependency[]     @relation("PrerequisiteTopic")
+  study_logs       StudyLog[]
+  student_progress StudentTopicProgress[]
+
+  @@map("topics")
+}
+
+model TopicDependency {
+  id                  String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  subject_id          String    @db.Uuid
+  topic_id            String    @db.Uuid
+  depends_on_topic_id String    @db.Uuid
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  subject    Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  topic      Topic   @relation("DependentTopic", fields: [topic_id], references: [id], onDelete: Cascade)
+  depends_on Topic   @relation("PrerequisiteTopic", fields: [depends_on_topic_id], references: [id], onDelete: Cascade)
+
+  @@unique([topic_id, depends_on_topic_id])
+  @@map("topic_dependencies")
+}
+
+model StudyLog {
+  id                  String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  user_id             String    @db.Uuid
+  topic_id            String    @db.Uuid
+  subject_id          String    @db.Uuid
+  /// CHECK: session_type IN ('learning','review')
+  session_type        String
+  duration_minutes    Int?
+  /// CHECK: quality_rating >= 0 AND quality_rating <= 5
+  quality_rating      Int?
+  /// CHECK: source_type IN ('personal','classroom')
+  source_type         String    @default("personal")
+  classroom_id        String?   @db.Uuid
+  classroom_course_id String?   @db.Uuid
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  topic            Topic            @relation(fields: [topic_id], references: [id], onDelete: Cascade)
+  subject          Subject          @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  classroom        Classroom?       @relation(fields: [classroom_id], references: [id])
+  classroom_course ClassroomCourse? @relation(fields: [classroom_course_id], references: [id])
+
+  @@map("study_logs")
+}
+
+model SavedGraphLayout {
+  id          String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  subject_id  String    @db.Uuid
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  user_id     String    @db.Uuid
+  layout_data Json
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  subject Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+
+  @@unique([subject_id, user_id])
+  @@map("saved_graph_layouts")
+}
+
+model SharedSubjectClone {
+  id                  String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  original_subject_id String    @db.Uuid
+  cloned_subject_id   String    @db.Uuid
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  cloned_by_user_id   String    @db.Uuid
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  original_subject Subject @relation("OriginalSubject", fields: [original_subject_id], references: [id], onDelete: Cascade)
+  cloned_subject   Subject @relation("ClonedSubject", fields: [cloned_subject_id], references: [id], onDelete: Cascade)
+
+  @@map("shared_subject_clones")
+}
+
+model FeedbackVote {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// References subjects.id (no FK constraint in production)
+  course_id  String    @db.Uuid
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  user_id    String    @db.Uuid
+  /// CHECK: vote_type IN (1, -1)
+  vote_type  Int       @db.SmallInt
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([user_id, course_id])
+  @@map("feedback_votes")
+}
+
+model CommunityResource {
+  id            String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  user_id       String    @db.Uuid
+  name          String
+  subject       String
+  /// CHECK: resource_type IN ('notes','pyq')
+  resource_type String
+  drive_link    String
+  details       String?
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@map("community_resources")
+}
+
+model CommunityResourceVote {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// References community_resources.id (no FK constraint in production)
+  resource_id String    @db.Uuid
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  user_id     String    @db.Uuid
+  /// CHECK: vote_type IN (1, -1)
+  vote_type   Int       @db.SmallInt
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([user_id, resource_id])
+  @@map("community_resource_votes")
+}
+
+model TeacherRoleAllowlist {
+  email      String   @id
+  /// CHECK: role = 'teacher'
+  role       String   @default("teacher")
+  granted_at DateTime @default(now()) @db.Timestamptz(6)
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  granted_by String?  @db.Uuid
+
+  @@map("teacher_role_allowlist")
+}
+
+model Classroom {
+  id              String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  name            String
+  description     String?
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  teacher_user_id String    @db.Uuid
+  timezone        String    @default("Asia/Kolkata")
+  archived_at     DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  courses          ClassroomCourse[]
+  members          ClassroomMember[]
+  invites          ClassroomInvite[]
+  student_progress StudentTopicProgress[]
+  study_logs       StudyLog[]
+
+  @@map("classrooms")
+}
+
+model ClassroomCourse {
+  id           String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  classroom_id String    @db.Uuid
+  subject_id   String    @db.Uuid
+  order_index  Int       @default(0)
+  published_at DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+
+  classroom        Classroom              @relation(fields: [classroom_id], references: [id], onDelete: Cascade)
+  subject          Subject                @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  student_progress StudentTopicProgress[]
+  study_logs       StudyLog[]
+
+  @@unique([classroom_id, subject_id])
+  @@map("classroom_courses")
+}
+
+model ClassroomMember {
+  id              String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  classroom_id    String    @db.Uuid
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  student_user_id String    @db.Uuid
+  /// CHECK: status IN ('invited','active','removed')
+  status          String    @default("invited")
+  joined_at       DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  classroom Classroom @relation(fields: [classroom_id], references: [id], onDelete: Cascade)
+
+  @@unique([classroom_id, student_user_id])
+  @@map("classroom_members")
+}
+
+model ClassroomInvite {
+  id                  String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  classroom_id        String    @db.Uuid
+  email               String
+  token_hash          String    @unique
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  invited_by          String    @db.Uuid
+  /// CHECK: status IN ('pending','accepted','expired','revoked')
+  status              String    @default("pending")
+  expires_at          DateTime  @db.Timestamptz(6)
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  accepted_by_user_id String?   @db.Uuid
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+
+  classroom Classroom @relation(fields: [classroom_id], references: [id], onDelete: Cascade)
+
+  @@map("classroom_invites")
+}
+
+model StudentTopicProgress {
+  id                  String    @id @default(dbgenerated("extensions.uuid_generate_v4()")) @db.Uuid
+  classroom_id        String    @db.Uuid
+  classroom_course_id String    @db.Uuid
+  /// FK -> auth.users.id (cross-schema, not modeled)
+  student_user_id     String    @db.Uuid
+  topic_id            String    @db.Uuid
+  /// CHECK: status IN ('locked','available','learning','reviewing','mastered')
+  status              String    @default("locked")
+  repetition_count    Int       @default(0)
+  interval_days       Int       @default(0)
+  difficulty_factor   Decimal   @default(2.5) @db.Decimal
+  next_review_at      DateTime? @db.Timestamptz(6)
+  first_started_at    DateTime? @db.Timestamptz(6)
+  completed_at        DateTime? @db.Timestamptz(6)
+  notes               String?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+
+  classroom        Classroom       @relation(fields: [classroom_id], references: [id], onDelete: Cascade)
+  classroom_course ClassroomCourse @relation(fields: [classroom_course_id], references: [id], onDelete: Cascade)
+  topic            Topic           @relation(fields: [topic_id], references: [id], onDelete: Cascade)
+
+  @@unique([classroom_course_id, student_user_id, topic_id])
+  @@map("student_topic_progress")
+}

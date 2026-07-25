@@ -134,7 +134,7 @@ export default function DoubtChat({
             {/* Chat Window */}
             {isOpen && (
                 <Card className="fixed inset-x-0 bottom-0 md:inset-x-auto md:bottom-8 md:right-8 w-full md:w-[400px] h-[70vh] md:h-[60vh] md:max-h-[600px] z-[110] flex flex-col shadow-2xl border-primary/20 animate-in slide-in-from-bottom-10 fade-in duration-300 overflow-hidden glass rounded-t-2xl md:rounded-xl">
-                    <CardHeader className="p-4 border-b border-white/10 bg-primary/5 flex flex-row items-center justify-between shrink-0">
+                    <CardHeader className="p-4 border-b border-border bg-primary/5 flex flex-row items-center justify-between shrink-0">
                         <div className="flex items-center gap-2">
                             <div className="p-1.5 bg-primary/20 rounded-lg">
                                 <Sparkles className="h-4 w-4 text-primary" />
@@ -166,13 +166,13 @@ export default function DoubtChat({
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`flex gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                                    <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-primary/20 text-primary' : 'bg-white/10 text-white'}`}>
+                                    <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-primary/20 text-primary' : 'bg-foreground/10 text-white'}`}>
                                         {msg.role === 'user' ? <User className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                                     </div>
                                     <div className={`rounded-2xl px-4 py-2.5 text-sm prose dark:prose-invert prose-p:my-0 prose-pre:my-1 prose-pre:bg-black/30 prose-code:bg-black/30 prose-code:px-1 prose-code:rounded max-w-none break-words ${
                                         msg.role === 'user' 
                                             ? 'bg-primary text-primary-foreground rounded-tr-none' 
-                                            : 'bg-white/10 text-foreground rounded-tl-none border border-white/5'
+                                            : 'bg-foreground/10 text-foreground rounded-tl-none border border-border/60'
                                     }`}>
                                         <ReactMarkdown 
                                             components={{
@@ -189,10 +189,10 @@ export default function DoubtChat({
                         {loading && (
                             <div className="flex justify-start">
                                 <div className="flex gap-2 max-w-[85%]">
-                                    <div className="h-8 w-8 rounded-full bg-white/10 text-white flex items-center justify-center shrink-0">
+                                    <div className="h-8 w-8 rounded-full bg-foreground/10 text-white flex items-center justify-center shrink-0">
                                         <Sparkles className="h-4 w-4" />
                                     </div>
-                                    <div className="bg-white/10 rounded-2xl rounded-tl-none px-4 py-3 border border-white/5 flex items-center gap-1.5">
+                                    <div className="bg-foreground/10 rounded-2xl rounded-tl-none px-4 py-3 border border-border/60 flex items-center gap-1.5">
                                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
                                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce delay-150"></span>
                                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce delay-300"></span>
@@ -203,7 +203,7 @@ export default function DoubtChat({
                         <div ref={messagesEndRef} />
                     </CardContent>
 
-                    <div className="p-3 bg-background border-t border-white/10 shrink-0">
+                    <div className="p-3 bg-background border-t border-border shrink-0">
                         <form 
                             onSubmit={(e) => { e.preventDefault(); handleSend(); }}
                             className="flex items-center gap-2"
@@ -213,7 +213,7 @@ export default function DoubtChat({
                                 onChange={(e) => setInput(e.target.value)}
                                 placeholder="Ask a doubt..."
                                 disabled={loading}
-                                className="bg-white/5 border-white/10 focus-visible:ring-primary h-10"
+                                className="bg-foreground/5 border-border focus-visible:ring-primary h-10"
                             />
                             <Button type="submit" size="icon" disabled={!input.trim() || loading} className="h-10 w-10 shrink-0">
                                 <Send className="h-4 w-4" />

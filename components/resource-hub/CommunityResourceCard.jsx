@@ -68,13 +68,13 @@ export function CommunityResourceCard({ resource }) {
         whileHover={{ y: -4 }}
         transition={{ duration: 0.3 }}
       >
-        <Card className="glass-card hover:bg-white/5 transition-all border-white/10 hover:border-primary/30 flex flex-col h-full overflow-hidden group">
-          <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
+        <Card className="glass-card hover:bg-foreground/5 transition-all border-border hover:border-primary/30 flex flex-col h-full overflow-hidden group">
+          <CardHeader className="pb-3 border-b border-border/60 bg-foreground/5">
             <div className="flex justify-between items-start gap-3">
               <div className="p-2 bg-primary/10 rounded-lg text-primary ring-1 ring-primary/20 group-hover:bg-primary group-hover:text-primary-foreground transition-all">
                 <BookOpen className="h-5 w-5" />
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-white/5 px-2 py-1 rounded">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-foreground/5 px-2 py-1 rounded">
                 {resource.resource_type}
               </div>
             </div>
@@ -120,7 +120,7 @@ export function CommunityResourceCard({ resource }) {
             </div>
           </CardContent>
 
-          <CardFooter className="pt-4 border-t border-white/5 bg-white/5 flex flex-col gap-3">
+          <CardFooter className="pt-4 border-t border-border/60 bg-foreground/5 flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant={voteState.userVote === 1 ? 'default' : 'outline'}
@@ -169,7 +169,7 @@ export function CommunityResourceCard({ resource }) {
                 </Button>
               )}
               {isFolder && (
-                <div className="text-[10px] text-muted-foreground flex items-center justify-center rounded-md border border-dashed border-white/10 p-2 text-center leading-tight">
+                <div className="text-[10px] text-muted-foreground flex items-center justify-center rounded-md border border-dashed border-border p-2 text-center leading-tight">
                   Folder download not supported
                 </div>
               )}

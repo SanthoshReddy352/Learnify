@@ -169,8 +169,49 @@ const sanitizeMermaidCode = (code) => {
   
   // === CLEAN UP ===
   result = result.replace(/\n\s*\n\s*\n/g, '\n\n')
-  
+
   return result.trim()
+}
+
+// Fix the constructs that pass the sanitizer but still break mermaid.render():
+//   - HTML formatting tags in labels (keep <br>)
+//   - literal newlines inside quoted labels -> <br>
+//   - nested double quotes inside [..] / {..} labels -> single quotes
+// This is what makes a retry meaningful: without it, re-rendering identical
+// broken code fails identically every time.
+const fixMermaidRenderBreakers = (code) => {
+  let out = String(code)
+
+  // 1. Strip HTML formatting tags but keep <br>/<br/>.
+  out = out.replace(/<\/?(?:b|strong|i|em|u|span|div|p|code|small|mark)\b[^>]*>/gi, '')
+
+  // 2. Literal newlines inside a simple double-quoted span -> <br>.
+  //    [^"] matches newlines, so this spans multi-line labels.
+  out = out.replace(/"([^"]*)"/g, (m, inner) =>
+    inner.includes('\n') ? '"' + inner.replace(/\r/g, '').replace(/\n+/g, '<br>') + '"' : m
+  )
+
+  // 3. Nested double quotes inside a single [..] or {..} label -> single quotes.
+  //    Scoped to one bracket group (no nested brackets), so structural quotes
+  //    of other nodes are never touched. Parens are left alone (stadium/circle
+  //    shapes use them as delimiters).
+  const demoteInner = (open, close) => {
+    const re = new RegExp(`\\${open}([^\\${open}\\${close}]*)\\${close}`, 'g')
+    out = out.replace(re, (m, inner) => {
+      const t = inner.trim()
+      if (t.startsWith('"') && t.endsWith('"') && t.length > 1) {
+        const body = inner.slice(inner.indexOf('"') + 1, inner.lastIndexOf('"'))
+        if (body.includes('"')) {
+          return `${open}"${body.replace(/"/g, "'")}"${close}`
+        }
+      }
+      return m
+    })
+  }
+  demoteInner('[', ']')
+  demoteInner('{', '}')
+
+  return out
 }
 
 // Diagram Lightbox Component
@@ -406,6 +447,7 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
   const [error, setError] = useState(null)
   const [isOpen, setIsOpen] = useState(false)
   const [theme, setTheme] = useState('light')
+  const [retryCount, setRetryCount] = useState(0)
   
   // Parse title and description from code
   const diagramTitle = parseMermaidTitle(code)
@@ -438,7 +480,7 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
   useEffect(() => {
     const renderDiagram = async () => {
       try {
-        const cleanCode = sanitizeMermaidCode(code)
+        const cleanCode = fixMermaidRenderBreakers(sanitizeMermaidCode(code))
         const diagramType = cleanCode
           .split('\n')
           .map((line) => line.trim())
@@ -652,12 +694,39 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
     if (code) {
       renderDiagram()
     }
-  }, [code, uniqueId, theme]) // Added theme dependency
+  }, [code, uniqueId, theme, retryCount])
 
   if (error) {
+    // Quiet fallback: never leak raw parser errors into the lesson content.
     return (
-      <div className="my-8 p-4 border border-red-500/50 bg-red-500/10 text-red-500 rounded-lg text-xs font-mono whitespace-pre-wrap">
-        Error rendering diagram: {error}
+      <div className="my-8 rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-2 h-2 rounded-full bg-muted-foreground/40 shrink-0" />
+            <span className="text-sm text-muted-foreground truncate">
+              {diagramTitle ? `Diagram unavailable: ${diagramTitle}` : 'This diagram could not be displayed'}
+            </span>
+          </div>
+          <button
+            onClick={() => { setError(null); setSvg(''); setRetryCount((c) => c + 1) }}
+            className="text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded hover:bg-primary/10 shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+        {diagramDescription && (
+          <p className="px-4 pb-3 text-sm text-muted-foreground italic">
+            {diagramDescription}
+          </p>
+        )}
+        <details className="border-t border-border/60">
+          <summary className="px-4 py-2 text-xs text-muted-foreground/70 cursor-pointer hover:text-muted-foreground select-none">
+            Technical details
+          </summary>
+          <div className="px-4 pb-3 text-xs font-mono text-muted-foreground whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
+            {String(error)}
+          </div>
+        </details>
       </div>
     )
   }
@@ -710,8 +779,13 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
             </div>
           </div>
           {/* Diagram Content */}
+          {/* a11y (P7.6): expose the diagram as a single labeled image using the
+              %%title/%%desc, so screen readers announce a meaningful summary
+              instead of reading the raw SVG label soup. */}
           <div
             ref={containerRef}
+            role="img"
+            aria-label={[diagramTitle, diagramDescription].filter(Boolean).join('. ') || 'Diagram'}
             className="min-w-0 overflow-hidden bg-card p-4 [&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-full"
             dangerouslySetInnerHTML={{ __html: svg }}
           />

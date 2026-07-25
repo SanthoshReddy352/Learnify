@@ -71,7 +71,7 @@ export function ContributeResourceModal({ open, onOpenChange, userId }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 sm:max-w-[500px] overflow-hidden">
+      <DialogContent className="bg-card/95 backdrop-blur-xl border-border sm:max-w-[500px] overflow-hidden">
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
         
         <DialogHeader>
@@ -93,7 +93,7 @@ export function ContributeResourceModal({ open, onOpenChange, userId }) {
                 placeholder="e.g. OS Full Notes"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="bg-background/50 border-white/10 focus:border-primary/50"
+                className="bg-background/50 border-border focus:border-primary/50"
                 required
               />
             </div>
@@ -104,7 +104,7 @@ export function ContributeResourceModal({ open, onOpenChange, userId }) {
                 placeholder="e.g. Operating Systems"
                 value={formData.subject}
                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                className="bg-background/50 border-white/10 focus:border-primary/50"
+                className="bg-background/50 border-border focus:border-primary/50"
                 required
               />
             </div>
@@ -116,10 +116,10 @@ export function ContributeResourceModal({ open, onOpenChange, userId }) {
               value={formData.resource_type} 
               onValueChange={(value) => setFormData({ ...formData, resource_type: value })}
             >
-              <SelectTrigger className="bg-background/50 border-white/10">
+              <SelectTrigger className="bg-background/50 border-border">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
-              <SelectContent className="bg-card border-white/10">
+              <SelectContent className="bg-card border-border">
                 <SelectItem value="notes">Reference Notes</SelectItem>
                 <SelectItem value="pyq">PYQ (Previous Year Questions)</SelectItem>
               </SelectContent>
@@ -136,7 +136,7 @@ export function ContributeResourceModal({ open, onOpenChange, userId }) {
               placeholder="https://drive.google.com/..."
               value={formData.drive_link}
               onChange={(e) => setFormData({ ...formData, drive_link: e.target.value })}
-              className="bg-background/50 border-white/10 focus:border-primary/50"
+              className="bg-background/50 border-border focus:border-primary/50"
               required
             />
             <div className="flex items-start gap-2 p-3 bg-primary/5 rounded-lg border border-primary/10">
@@ -154,7 +154,7 @@ export function ContributeResourceModal({ open, onOpenChange, userId }) {
               placeholder="e.g. Contains topic-wise previous 5 year GATE questions"
               value={formData.details}
               onChange={(e) => setFormData({ ...formData, details: e.target.value })}
-              className="bg-background/50 border-white/10 focus:border-primary/50 min-h-[80px] resize-none"
+              className="bg-background/50 border-border focus:border-primary/50 min-h-[80px] resize-none"
             />
           </div>
 
@@ -163,7 +163,7 @@ export function ContributeResourceModal({ open, onOpenChange, userId }) {
               type="button" 
               variant="ghost" 
               onClick={() => onOpenChange(false)}
-              className="hover:bg-white/5"
+              className="hover:bg-foreground/5"
             >
               Cancel
             </Button>

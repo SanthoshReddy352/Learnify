@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { generateWithGemini } from '@/lib/gemini'
+import { generateTextWithFallback } from '@/lib/ai/generate'
 
 export async function POST(request) {
   try {
@@ -52,14 +52,12 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Topics contain no content to summarize.' }, { status: 400 })
     }
 
-    // Fetch user's API Key
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('gemini_api_key')
+    // Fetch user's AI provider config
+    const { data: userSecrets } = await supabase
+      .from('user_secrets')
+      .select('*')
       .eq('id', user.id)
       .maybeSingle()
-
-    const userApiKey = userData?.gemini_api_key
 
     const prompt = `You are a master summarizer and tutor. The following is a collection of educational topics for the subject: "${subject.title}".
     
@@ -86,19 +84,12 @@ export async function POST(request) {
 
     console.log(`[CheatSheet] Generating for subject ${subjectId}...`)
 
-    const contentResponseData = await generateWithGemini([
-        { role: 'system', content: 'You are an expert tutor that creates dense, high-yield cheat sheets.' },
-        { role: 'user', content: prompt }
-    ], {
-      apiKey: userApiKey,
-      maxOutputTokens: 5000
+    let finalContent = await generateTextWithFallback({
+      system: 'You are an expert tutor that creates dense, high-yield cheat sheets.',
+      prompt,
+      maxOutputTokens: 5000,
+      userSecrets
     })
-
-    let finalContent = contentResponseData.choices?.[0]?.message?.content
-    
-    if (!finalContent) {
-        throw new Error('AI returned empty content for Cheat Sheet')
-    }
 
     // Cleanup Markdown blocks
     finalContent = finalContent.replace(/^```markdown\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim()

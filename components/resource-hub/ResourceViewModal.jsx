@@ -18,8 +18,8 @@ export function ResourceViewModal({ open, onOpenChange, resource }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 bg-card border-white/10 overflow-hidden flex flex-col">
-        <DialogHeader className="px-6 py-4 border-b border-white/5 bg-background/50 backdrop-blur-md flex flex-row items-center justify-between space-y-0">
+      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 bg-card border-border overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-4 border-b border-border/60 bg-background/50 backdrop-blur-md flex flex-row items-center justify-between space-y-0">
           <div className="flex flex-col gap-0.5 max-w-[60%]">
             <DialogTitle className="text-lg font-bold truncate tracking-tight text-foreground">
               {resource.name}
@@ -33,7 +33,7 @@ export function ResourceViewModal({ open, onOpenChange, resource }) {
             <Button 
               variant="outline" 
               size="sm" 
-              className="h-9 border-white/10 hover:bg-white/5 text-xs gap-2 hidden sm:flex px-4 rounded-lg"
+              className="h-9 border-border hover:bg-foreground/5 text-xs gap-2 hidden sm:flex px-4 rounded-lg"
               asChild
             >
               <a href={previewLink} target="_blank" rel="noopener noreferrer">

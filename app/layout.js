@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DownloadBanner } from "@/components/download-banner";
 import { AppInitializer } from "@/components/AppInitializer";
-import { GlobalNavigation } from "@/components/GlobalNavigation";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,7 +16,6 @@ export const viewport = {
   themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
 };
 
@@ -60,9 +58,7 @@ export default function RootLayout({ children }) {
         >
           <TooltipProvider>
             <AppInitializer />
-            <GlobalNavigation>
-              {children}
-            </GlobalNavigation>
+            {children}
             <DownloadBanner />
 
             <Toaster />

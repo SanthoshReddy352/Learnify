@@ -30,8 +30,8 @@ const ContentImage = ({ src, alt, ...props }) => {
             {...props}
           />
           {/* Zoom indicator overlay */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-white/5 transition-colors flex items-center justify-center">
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 dark:bg-white/20 text-white px-3 py-1.5 rounded-full text-sm backdrop-blur-sm">
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-foreground/5 transition-colors flex items-center justify-center">
+            <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 dark:bg-foreground/20 text-white px-3 py-1.5 rounded-full text-sm backdrop-blur-sm">
               Click to expand
             </span>
           </div>

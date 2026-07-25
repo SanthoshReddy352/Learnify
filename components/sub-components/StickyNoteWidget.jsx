@@ -888,7 +888,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                 variant="ghost"
                 size="icon"
                 onClick={handleManualSave}
-                className="h-7 w-7 rounded-full text-current hover:bg-black/10 dark:hover:bg-white/10"
+                className="h-7 w-7 rounded-full text-current hover:bg-black/10 dark:hover:bg-foreground/10"
                 title="Save Notes"
               >
                 <Save className="h-4 w-4" />
@@ -897,7 +897,7 @@ export default function StickyNoteWidget({ initialNotes = '', topicId, topicTitl
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsOpen(false)}
-                className="h-7 w-7 rounded-full text-current hover:bg-black/10 dark:hover:bg-white/10"
+                className="h-7 w-7 rounded-full text-current hover:bg-black/10 dark:hover:bg-foreground/10"
                 title="Close Notes"
               >
                 <X className="h-4 w-4" />

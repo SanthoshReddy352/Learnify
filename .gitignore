@@ -88,3 +88,10 @@ node_modules/@next/swc-win32-x64-msvc/next-swc.win32-x64-msvc.node
 
 .env
 .env.local
+
+# Env backups (a real key leaked via this file once - never track)
+.env.local.backup
+.env*.backup
+
+# Schema tooling secrets/output
+scripts/.env.schema
