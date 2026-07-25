@@ -538,6 +538,39 @@ happens" is the symptom. Check the Vercel function logs.
 | 8 | `content_feedback` | `content_feedback` |
 | 9 | `certificates` | `certificates` + the `verify_certificate()` function |
 
+## Appendix C — 🔒 `jsdom` is pinned to `~27.3.0`. Do not bump it casually.
+
+**`jsdom@27.4.0` breaks every server route that touches jsdom, at runtime, in production only.**
+
+The chain: `jsdom@27.4.0` bumped `html-encoding-sniffer` from `^4` to `^6`, and v6
+depends on `@exodus/bytes`, which is **pure ESM** (`"type": "module"`). But
+`html-encoding-sniffer` is CommonJS and `require()`s it. Vercel's serverless module
+loader does not support `require()` of an ESM module, so the route dies at import time
+with:
+
+```
+Error [ERR_REQUIRE_ESM]: require() of ES Module .../@exodus/bytes/encoding-lite.js
+from .../html-encoding-sniffer/lib/html-encoding-sniffer.js not supported.
+```
+
+**This does not reproduce locally.** Node 22.12+ supports `require(esm)`, so on a dev
+machine running Node 22.12/24 everything works — it only fails once deployed. `npm run
+build` does not catch it either, because it is an *import-time* failure in the
+serverless runtime, not a compile error.
+
+Affected routes are every one that reaches jsdom — which is all content generation, via
+mermaid validation (`lib/ai/mermaid.js`) and HTML→text extraction (`lib/ai/tools/web.js`).
+
+**If you ever need to move jsdom:** check that `html-encoding-sniffer` resolves to v4,
+not v6:
+
+```bash
+npm ls @exodus/bytes
+```
+
+That command must print `(empty)`. If `@exodus/bytes` appears anywhere in the tree, the
+deployment will fail at runtime no matter how green the build is.
+
 ## Appendix B — Known gaps, deliberately not addressed
 
 - **Android push does not work.** Web Push is not implemented in the Capacitor Android

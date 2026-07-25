@@ -21,6 +21,8 @@ import MarkdownComponents from '@/components/sub-components/MarkdownComponents'
 import GenerationProgress from '@/components/sub-components/GenerationProgress'
 import TtsControls from '@/components/sub-components/TtsControls'
 import ReportContentButton from '@/components/sub-components/ReportContentButton'
+import RetrievalPractice from '@/components/sub-components/RetrievalPractice'
+import ArtifactFrame from '@/components/sub-components/ArtifactFrame'
 import { readJson } from '@/lib/http/read-json'
 import { useGenerationJob } from '@/lib/jobs/useGenerationJob'
 
@@ -40,6 +42,8 @@ export default function ClassroomLearnPage() {
   const [flashcards, setFlashcards] = useState([])
   const [isFlipped, setIsFlipped] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [artifact, setArtifact] = useState(null)
+  const [generatingArtifact, setGeneratingArtifact] = useState(false)
   const genJob = useGenerationJob()
 
   const startTimeRef = useRef(Date.now())
@@ -179,6 +183,29 @@ export default function ClassroomLearnPage() {
     }
 
     toast.error(result.error || 'Failed to complete topic')
+  }
+
+  // Interactive demo (P7.3). Classroom ids are forwarded so the route can
+  // resolve a teacher-owned topic for an enrolled student.
+  const handleGenerateArtifact = async () => {
+    setGeneratingArtifact(true)
+    try {
+      const response = await fetch('/api/generate-artifact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topicId: topic.id,
+          classroomId: params.classroomId,
+          classroomCourseId: params.classroomCourseId
+        })
+      })
+      const result = await readJson(response, 'Could not generate an interactive demo')
+      setArtifact(result.artifact)
+    } catch (error) {
+      toast.error('Could not generate an interactive demo: ' + error.message)
+    } finally {
+      setGeneratingArtifact(false)
+    }
   }
 
   const handleRegenerateContent = async () => {
@@ -517,6 +544,47 @@ export default function ClassroomLearnPage() {
                       Generate Detailed Content
                     </Button>
                   </>
+                )}
+              </div>
+            )}
+
+            {/* Retrieval practice (P9.2) and the interactive demo (P7.3) were
+                only ever mounted on the self-paced learn page — a classroom
+                student got neither. Same components, classroom ids forwarded so
+                the API can resolve a teacher-owned topic. */}
+            {hasDetailedContent && (
+              <div className="mt-8">
+                <RetrievalPractice
+                  topicId={topic.id}
+                  subjectId={course.subjects?.id}
+                  classroomId={params.classroomId}
+                  classroomCourseId={params.classroomCourseId}
+                  // Items are authored by whoever owns the subject (the teacher),
+                  // not by students sitting the lesson.
+                  canAuthor={false}
+                />
+              </div>
+            )}
+
+            {hasDetailedContent && (
+              <div className="mt-8">
+                {artifact ? (
+                  <ArtifactFrame
+                    html={artifact.html}
+                    title={artifact.title}
+                    description={artifact.description}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground bg-foreground/5 rounded-xl border border-border/60 border-dashed">
+                    {generatingArtifact ? (
+                      <GenerationProgress indeterminate stage="Building an interactive demo…" />
+                    ) : (
+                      <Button onClick={handleGenerateArtifact} variant="outline" className="border-primary/30 hover:bg-primary/10 text-primary">
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Try an interactive demo
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             )}

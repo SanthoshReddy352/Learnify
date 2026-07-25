@@ -17,7 +17,17 @@ const CONFIDENCE_CHOICES = [
   { value: 'sure', label: 'Confident' }
 ]
 
-export default function RetrievalPractice({ topicId, subjectId, className = '' }) {
+export default function RetrievalPractice({
+  topicId,
+  subjectId,
+  // Present only inside a classroom course. Forwarded so the API can resolve a
+  // teacher-owned topic for an enrolled student.
+  classroomId,
+  classroomCourseId,
+  // False for an enrolled student: they practise the bank, they do not write it.
+  canAuthor = true,
+  className = ''
+}) {
   const [items, setItems] = useState(null)
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -34,7 +44,7 @@ export default function RetrievalPractice({ topicId, subjectId, className = '' }
       const res = await fetch('/api/practice/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId, limit: 3 })
+        body: JSON.stringify({ topicId, limit: 3, classroomId, classroomCourseId })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Could not load practice questions')
@@ -130,12 +140,19 @@ export default function RetrievalPractice({ topicId, subjectId, className = '' }
       <div className={`rounded-xl border border-border border-dashed bg-foreground/5 p-8 flex flex-col items-center text-center ${className}`}>
         <Brain className="h-9 w-9 mb-3 text-primary/70" />
         <p className="text-sm text-muted-foreground mb-4 max-w-md">
-          No practice questions for this topic yet — they are written from the concepts this lesson taught.
+          {canAuthor
+            ? 'No practice questions for this topic yet — they are written from the concepts this lesson taught.'
+            : 'No practice questions for this lesson yet. Your teacher writes these from the course material.'}
         </p>
-        <Button onClick={buildItems} disabled={generating} variant="outline" className="border-primary/30 hover:bg-primary/10 text-primary">
-          {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-          {generating ? 'Writing questions…' : 'Create practice questions'}
-        </Button>
+        {/* Only the subject's owner may author items — /api/generate-assessment
+            requires ownership, so offering this button to an enrolled student
+            would dangle an action that always fails. */}
+        {canAuthor && (
+          <Button onClick={buildItems} disabled={generating} variant="outline" className="border-primary/30 hover:bg-primary/10 text-primary">
+            {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            {generating ? 'Writing questions…' : 'Create practice questions'}
+          </Button>
+        )}
       </div>
     )
   }

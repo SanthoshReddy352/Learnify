@@ -22,14 +22,16 @@ export async function POST(request) {
 
     const parsed = parseOr400(practiceItemsRequestSchema, await request.json().catch(() => ({})))
     if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 })
-    const { topicId, limit } = parsed.data
+    const { topicId, limit, classroomId, classroomCourseId } = parsed.data
 
-    // Access check first (owner or enrolled classroom student).
+    // Access check first (owner or enrolled classroom student). The classroom
+    // ids must be forwarded — hardcoding them to null made every classroom
+    // lesson 404 here, so practice only ever worked in self-paced subjects.
     const access = await resolveTopicAccess(supabase, {
       userId: user.id,
       topicId,
-      classroomId: null,
-      classroomCourseId: null
+      classroomId: classroomId || null,
+      classroomCourseId: classroomCourseId || null
     }).catch(() => null)
     if (!access) return NextResponse.json({ error: 'Topic not found' }, { status: 404 })
 

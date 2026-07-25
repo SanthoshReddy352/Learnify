@@ -138,6 +138,10 @@ export default function LearnPage() {
 
       setTopic(topicData)
       setSubject(topicData.subjects)
+      // A stored artifact (CONTENT_ARTIFACT) must be shown rather than silently
+      // regenerated — otherwise the column is written and never read, and every
+      // visit pays for a model call that already happened.
+      if (topicData.artifact?.html) setArtifact(topicData.artifact)
       setLoading(false)
 
       // Mark as learning if available
@@ -219,8 +223,7 @@ export default function LearnPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topicId: topic.id })
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Failed to generate demo')
+      const result = await readJson(response, 'Failed to generate demo')
       setArtifact(result.artifact)
     } catch (error) {
       console.error('Artifact generation error:', error)
