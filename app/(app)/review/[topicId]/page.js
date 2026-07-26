@@ -14,7 +14,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkBreaks from 'remark-breaks'
 import { sanitizeLatex } from '@/lib/latexToUnicode'
-import CodeBlock, { cleanCodeContent } from '@/components/sub-components/CodeBlock'
+import CodeBlock, { cleanCodeContent, LessonTopicContext } from '@/components/sub-components/CodeBlock'
 import Flashcard from '@/components/sub-components/Flashcard'
 import DoubtChat from '@/components/sub-components/DoubtChat'
 import MarkdownComponents from '@/components/sub-components/MarkdownComponents'
@@ -361,14 +361,16 @@ export default function ReviewPage() {
                     </div>
 
                   {topic.content && (
-                    <div className="markdown-content prose dark:prose-invert prose-p:text-muted-foreground prose-headings:text-foreground prose-strong:text-primary prose-code:text-primary max-w-none break-words">
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm, remarkBreaks]}
-                        components={MarkdownComponents}
-                      >
-                        {sanitizeLatex(topic.content)}
-                      </ReactMarkdown>
-                    </div>
+                    <LessonTopicContext.Provider value={topic.id}>
+                      <div className="markdown-content prose dark:prose-invert prose-p:text-muted-foreground prose-headings:text-foreground prose-strong:text-primary prose-code:text-primary max-w-none break-words">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkBreaks]}
+                          components={MarkdownComponents}
+                        >
+                          {sanitizeLatex(topic.content)}
+                        </ReactMarkdown>
+                      </div>
+                    </LessonTopicContext.Provider>
                   )}
 
                 </div>

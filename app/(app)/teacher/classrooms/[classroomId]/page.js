@@ -8,6 +8,7 @@ import {
   ArrowRight,
   BookOpen,
   ChartColumn,
+  ClipboardList,
   Layers3,
   Mail,
   Plus,
@@ -150,6 +151,14 @@ export default function TeacherClassroomDetailPage() {
               >
                 <Users className="mr-2 h-4 w-4" />
                 Manage Students
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11 border-border bg-foreground/5"
+                onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/assessments`)}
+              >
+                <ClipboardList className="mr-2 h-4 w-4" />
+                Assessments
               </Button>
               <Button
                 className="h-11"

@@ -1,9 +1,32 @@
 'use client'
 
-import { useState, useEffect, useRef, useId, useCallback } from 'react'
+import { useState, useEffect, useRef, useId, useCallback, createContext, useContext } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, X, ZoomIn, ZoomOut, RotateCcw, PenLine, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  prepareMermaidCode,
+  parseMermaidTitle,
+  parseMermaidDescription
+} from '@/lib/ai/mermaid-sanitize'
+
+// The diagram transforms deliberately live in lib/ai/mermaid-sanitize.js rather
+// than here: the SERVER validator must hand mermaid.parse() the identical
+// string this component hands mermaid.render(), or it approves diagrams that
+// cannot be drawn. Re-exported for the existing importers.
+export { parseMermaidTitle, parseMermaidDescription }
+
+/**
+ * Which topic the rendered markdown belongs to.
+ *
+ * react-markdown constructs `code` elements itself, so props cannot be threaded
+ * through to CodeBlock — a context is the only way to tell a diagram which
+ * lesson it is part of. Supplying it lets a successful repair be written back
+ * to the topic, so a broken diagram is fixed once instead of once per reader.
+ * Absent (notes, previews, standalone snippets) repair still works; it just
+ * isn't persisted.
+ */
+export const LessonTopicContext = createContext(null)
 
 export const cleanCodeContent = (content) => {
   let cleaned = String(content).replace(/\n$/, '')
@@ -24,194 +47,6 @@ const createStableMermaidId = (code) => {
   }
 
   return Math.abs(hash).toString(36)
-}
-
-// Extract title from Mermaid code (%%title: Title Here)
-export const parseMermaidTitle = (code) => {
-  const titleMatch = code.match(/^%%title:\s*(.+)$/m)
-  return titleMatch ? titleMatch[1].trim() : null
-}
-
-// Extract description from Mermaid code (%%desc: Description here)
-export const parseMermaidDescription = (code) => {
-  const descMatch = code.match(/^%%desc:\s*(.+)$/m)
-  return descMatch ? descMatch[1].trim() : null
-}
-
-// Comprehensive Mermaid sanitizer - handles ALL node shapes and syntax issues
-const sanitizeMermaidCode = (code) => {
-  let result = code
-  
-  // Remove title and description comments (we extract them separately)
-  result = result.replace(/^%%title:.*$/gm, '')
-  result = result.replace(/^%%desc:.*$/gm, '')
-  
-  // Helper to process label content: trim and replace newlines with space
-  const formatLabel = (label) => {
-    return label.trim().replace(/[\r\n]+/g, ' ').replace(/"/g, "'")
-  }
-
-  const firstDiagramLine = result
-    .split('\n')
-    .map((line) => line.trim())
-    .find((line) => line.length > 0)
-
-  const isFlowchartLike = /^(flowchart|graph)\b/i.test(firstDiagramLine || '')
-  const isClassDiagram = /^classDiagram\b/i.test(firstDiagramLine || '')
-  
-  if (isFlowchartLike) {
-    // Flowchart syntax is where these node-shape and subgraph rewrites are valid.
-
-    // 1. Rectangle [Label]
-    result = result.replace(/(\w+)\[([^\]"]*[()&<>#@!, \s][^\]"]*)\]/g,
-      (m, id, label) => `${id}["${formatLabel(label)}"]`)
-
-    // 2. Diamond/Rhombus {Label}
-    result = result.replace(/(\w+)\{([^}"]*[()&<>#@!, \s][^}"]*)\}/g,
-      (m, id, label) => `${id}{"${formatLabel(label)}"}`)
-
-    // 3. Double curly - Hexagon {{Label}}
-    result = result.replace(/(\w+)\{\{([^}"]*[()&<>#@!, \s][^}"]*)\}\}/g,
-      (m, id, label) => `${id}{{"${formatLabel(label)}"}}`)
-
-    // 4. Stadium shape with nested parens - convert to rectangle
-    result = result.replace(/(\w+)\(([^)(]*\([^)]*\)[^)(]*)\)/g,
-      (m, id, label) => `${id}["${formatLabel(label)}"]`)
-
-    // 5. Circle ((Label))
-    result = result.replace(/(\w+)\(\(([^)"]*[()&<>#@!, \s][^)"]*)\)\)/g,
-      (m, id, label) => `${id}(("${formatLabel(label)}"))`)
-
-    // 6. Triple circle (((Label)))
-    result = result.replace(/(\w+)\(\(\(([^)"]*[()&<>#@!, \s][^)"]*)\)\)\)/g,
-      (m, id, label) => `${id}(((" ${formatLabel(label)} ")))`)
-
-    // 7. Subroutine [[Label]]
-    result = result.replace(/(\w+)\[\[([^\]"]*[()&<>#@!, \s][^\]"]*)\]\]/g,
-      (m, id, label) => `${id}[["${formatLabel(label)}"]]`)
-
-    // 8. Cylinder [(Label)]
-    result = result.replace(/(\w+)\[\(([^)"]*[()&<>#@!, \s][^)"]*)\)\]/g,
-      (m, id, label) => `${id}[("${formatLabel(label)}")]`)
-
-    // 9. Stadium ([Label])
-    result = result.replace(/(\w+)\(\[([^\]"]*[()&<>#@!, \s][^\]"]*)\]\)/g,
-      (m, id, label) => `${id}(["${formatLabel(label)}"])`)
-
-    // 10. Asymmetric >Label]
-    result = result.replace(/(\w+)>([^\]"]*[()&<>#@!, \s][^\]"]*)\]/g,
-      (m, id, label) => `${id}>"${formatLabel(label)}"]`)
-
-    // 11. Parallelogram [/Label/]
-    result = result.replace(/(\w+)\[\/([^\/\]"]*[()&<>#@!, \s][^\/\]"]*)\/\]/g,
-      (m, id, label) => `${id}[/"${formatLabel(label)}"/]`)
-
-    // 12. Parallelogram alt [\Label\]
-    result = result.replace(/(\w+)\[\\([^\\\]"]*[()&<>#@!, \s][^\\\]"]*)\\]/g,
-      (m, id, label) => `${id}[\\"${formatLabel(label)}\\"]`)
-
-    // 13. Trapezoid [/Label\]
-    result = result.replace(/(\w+)\[\/([^\/\\\]"]*[()&<>#@!, \s][^\/\\\]"]*)\\]/g,
-      (m, id, label) => `${id}[/"${formatLabel(label)}\\"]`)
-
-    // 14. Inverted trapezoid [\Label/]
-    result = result.replace(/(\w+)\[\\([^\\\]"]*[()&<>#@!, \s][^\\\]"]*)\/\]/g,
-      (m, id, label) => `${id}[\\"${formatLabel(label)}"/]`)
-
-    // 15. Simple stadium (Label)
-    result = result.replace(/(\w+)\(([^)()"]*[&<>#@!, \s][^)()"]*)\)/g,
-      (m, id, label) => `${id}("${formatLabel(label)}")`)
-
-    // Fix subgraph labels
-    result = result.replace(/^(\s*subgraph\s+)(\w+)\s*\(([^)]+)\)\s*$/gm,
-      (m, prefix, id, label) => `${prefix}${id}["${formatLabel(label)}"]`)
-    result = result.replace(/^(\s*subgraph\s+)([A-Za-z_][A-Za-z0-9_]*)\s+([^"\[\n][^\n]*[^\s])\s*$/gm,
-      (m, prefix, id, label) => `${prefix}${id}["${formatLabel(label)}"]`)
-
-    // Fix flowchart edge labels
-    result = result.replace(/(\-\->|\-\-|\.\.>|==>)\|([^|]*[()&<> \s][^|]*)\|/g,
-      (m, arrow, label) => `${arrow}|"${formatLabel(label)}"|`)
-  }
-
-  if (isClassDiagram) {
-    // Mermaid class diagrams require explicit `class` for standalone labeled declarations.
-    result = result.replace(
-      /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)\s*(\[(?:"[^"]*"|`[^`]*`)\])\s*$/gm,
-      (m, indent, id, label) => `${indent}class ${id}${label}`
-    )
-  }
-  
-  // === REMOVE COMMENTS ===
-  result = result.replace(/;\s*%[^%\n].*$/gm, ';')
-  result = result.replace(/;\s*%%.*$/gm, ';')
-  result = result.replace(/(\-\->|\-\-|==>|\.\.>)\s*%[^%\n].*$/gm, '$1')
-  result = result.replace(/^\s*%[^%].*$/gm, '')
-  
-  if (isFlowchartLike) {
-    // Fix malformed arrows only for flowchart syntax.
-    result = result.replace(/\-\-\s*\-\->/g, '-->')
-    result = result.replace(/\-\s+\->/g, '-->')
-    result = result.replace(/=\s+=>/g, '==>')
-  }
-  
-  // === REMOVE UNSUPPORTED SYNTAX ===
-  result = result.replace(/^\s*enum\s+\w+\s*\{[^}]*\}/gm, '')
-
-  // === STRIP INLINE STYLES & CLASSES (Force Theme Colors) ===
-  // Remove style lines (e.g., style A fill:#f9f,stroke:#333)
-  result = result.replace(/^\s*style\s+.*$/gm, '')
-  // Remove classDef lines (e.g., classDef className fill:#f9f)
-  result = result.replace(/^\s*classDef\s+.*$/gm, '')
-  // Remove class attachments (e.g., A:::className or A:::someClass)
-  result = result.replace(/:::\s*[a-zA-Z0-9_-]+/g, '')
-  // Remove link styles (e.g., linkStyle 0 stroke-width:2px)
-  result = result.replace(/^\s*linkStyle\s+.*$/gm, '')
-  
-  // === CLEAN UP ===
-  result = result.replace(/\n\s*\n\s*\n/g, '\n\n')
-
-  return result.trim()
-}
-
-// Fix the constructs that pass the sanitizer but still break mermaid.render():
-//   - HTML formatting tags in labels (keep <br>)
-//   - literal newlines inside quoted labels -> <br>
-//   - nested double quotes inside [..] / {..} labels -> single quotes
-// This is what makes a retry meaningful: without it, re-rendering identical
-// broken code fails identically every time.
-const fixMermaidRenderBreakers = (code) => {
-  let out = String(code)
-
-  // 1. Strip HTML formatting tags but keep <br>/<br/>.
-  out = out.replace(/<\/?(?:b|strong|i|em|u|span|div|p|code|small|mark)\b[^>]*>/gi, '')
-
-  // 2. Literal newlines inside a simple double-quoted span -> <br>.
-  //    [^"] matches newlines, so this spans multi-line labels.
-  out = out.replace(/"([^"]*)"/g, (m, inner) =>
-    inner.includes('\n') ? '"' + inner.replace(/\r/g, '').replace(/\n+/g, '<br>') + '"' : m
-  )
-
-  // 3. Nested double quotes inside a single [..] or {..} label -> single quotes.
-  //    Scoped to one bracket group (no nested brackets), so structural quotes
-  //    of other nodes are never touched. Parens are left alone (stadium/circle
-  //    shapes use them as delimiters).
-  const demoteInner = (open, close) => {
-    const re = new RegExp(`\\${open}([^\\${open}\\${close}]*)\\${close}`, 'g')
-    out = out.replace(re, (m, inner) => {
-      const t = inner.trim()
-      if (t.startsWith('"') && t.endsWith('"') && t.length > 1) {
-        const body = inner.slice(inner.indexOf('"') + 1, inner.lastIndexOf('"'))
-        if (body.includes('"')) {
-          return `${open}"${body.replace(/"/g, "'")}"${close}`
-        }
-      }
-      return m
-    })
-  }
-  demoteInner('[', ']')
-  demoteInner('{', '}')
-
-  return out
 }
 
 // Diagram Lightbox Component
@@ -447,11 +282,47 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
   const [error, setError] = useState(null)
   const [isOpen, setIsOpen] = useState(false)
   const [theme, setTheme] = useState('light')
-  const [retryCount, setRetryCount] = useState(0)
-  
-  // Parse title and description from code
+  const [repairing, setRepairing] = useState(false)
+
+  // The diagram source actually being rendered. Starts as the authored code and
+  // is REPLACED by a successful repair — this is what makes Retry able to
+  // succeed. Retrying without changing the input re-ran pure functions over an
+  // unchanged string, so it reproduced the same failure every single time.
+  const [activeCode, setActiveCode] = useState(code)
+  useEffect(() => { setActiveCode(code) }, [code])
+
+  const topicId = useContext(LessonTopicContext)
+
+  // Read metadata off the ORIGINAL code: a repair may drop the %%title/%%desc
+  // lines, and the caption should survive that.
   const diagramTitle = parseMermaidTitle(code)
   const diagramDescription = parseMermaidDescription(code)
+
+  // Ask the server to repair the diagram, giving it the browser's render error —
+  // information the generation-time validator never had, because it only ran
+  // mermaid.parse() and these are render() failures.
+  const handleRepair = useCallback(async () => {
+    setRepairing(true)
+    try {
+      const response = await fetch('/api/repair-diagram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: activeCode, renderError: String(error || ''), topicId })
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result?.error || 'Repair failed')
+
+      setError(null)
+      setSvg('')
+      // Triggers the render effect with the repaired source.
+      setActiveCode(result.code)
+      toast.success('Diagram fixed')
+    } catch (err) {
+      toast.error(err.message || 'Could not fix this diagram')
+    } finally {
+      setRepairing(false)
+    }
+  }, [activeCode, error, topicId])
 
   // Watch for theme changes
   useEffect(() => {
@@ -480,7 +351,8 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
   useEffect(() => {
     const renderDiagram = async () => {
       try {
-        const cleanCode = fixMermaidRenderBreakers(sanitizeMermaidCode(code))
+        // Same transform the server validated with — see lib/ai/mermaid-sanitize.js.
+        const cleanCode = prepareMermaidCode(activeCode)
         const diagramType = cleanCode
           .split('\n')
           .map((line) => line.trim())
@@ -691,10 +563,10 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
       }
     }
     
-    if (code) {
+    if (activeCode) {
       renderDiagram()
     }
-  }, [code, uniqueId, theme, retryCount])
+  }, [activeCode, uniqueId, theme])
 
   if (error) {
     // Quiet fallback: never leak raw parser errors into the lesson content.
@@ -708,10 +580,18 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
             </span>
           </div>
           <button
-            onClick={() => { setError(null); setSvg(''); setRetryCount((c) => c + 1) }}
-            className="text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded hover:bg-primary/10 shrink-0"
+            onClick={handleRepair}
+            disabled={repairing}
+            className="text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded hover:bg-primary/10 shrink-0 disabled:opacity-60 flex items-center gap-1.5"
           >
-            Retry
+            {repairing ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Fixing…
+              </>
+            ) : (
+              'Fix diagram'
+            )}
           </button>
         </div>
         {diagramDescription && (
@@ -742,7 +622,9 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
 
   return (
     <>
-      <figure className="my-8 group overflow-hidden" data-mermaid-code={encodeURIComponent(code)}>
+      {/* activeCode, not code: after a repair these must carry the version that
+          actually renders, or copying to notes reproduces the broken diagram. */}
+      <figure className="my-8 group overflow-hidden" data-mermaid-code={encodeURIComponent(activeCode)}>
         <div 
           className="rounded-xl overflow-hidden border border-border shadow-lg cursor-zoom-in transition-all hover:shadow-xl hover:border-primary/30 bg-card"
           onClick={() => setIsOpen(true)}
@@ -760,7 +642,7 @@ const MermaidDiagram = ({ code, allowAddToNotes = true }) => {
                 <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  const markdown = `\`\`\`mermaid\n${code}\n\`\`\``
+                  const markdown = `\`\`\`mermaid\n${activeCode}\n\`\`\``
                   window.dispatchEvent(new CustomEvent('add-highlight-to-notes', {
                     detail: { text: markdown, color: 'purple' }
                   }))

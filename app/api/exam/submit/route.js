@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { gradeAttempt, conceptSignalsFromResults, PASS_SCORE } from '@/lib/assessment/exam'
+import { scoreWeighted } from '@/lib/assessment/authoring'
 import { detectAttemptFlags, normalizeIntegrityEvents, summarizeFlags } from '@/lib/assessment/integrity'
 import { resolveAttemptMode, vivaRequired } from '@/lib/assessment/mode'
 import { recordConceptSignal } from '@/lib/memory/concept-state'
@@ -32,7 +33,7 @@ export async function POST(request) {
 
     const { data: attempt, error: attemptError } = await admin
       .from('assessment_attempts')
-      .select('id, user_id, subject_id, kind, status, items')
+      .select('id, user_id, subject_id, kind, status, items, assessment_id')
       .eq('id', attemptId)
       .single()
     if (attemptError || !attempt) {
@@ -60,6 +61,32 @@ export async function POST(request) {
     }
 
     const graded = gradeAttempt({ items: items || [], served, responses })
+
+    // A teacher-authored paper may weight its questions and set its own pass
+    // mark, so its score is recomputed against those. Weights are read back
+    // from the ATTEMPT (stored at start time), never from the paper as it
+    // stands now — a teacher editing the paper afterwards must not silently
+    // re-score work that has already been submitted.
+    let score = graded.score
+    let passed = graded.passed
+    let effectivePassScore = PASS_SCORE
+
+    if (attempt.assessment_id) {
+      const { data: paper } = await admin
+        .from('assessments')
+        .select('pass_score')
+        .eq('id', attempt.assessment_id)
+        .maybeSingle()
+
+      const weights = graded.results.map(
+        (result) => Number(served.find((s) => s.itemId === result.itemId)?.points ?? 1)
+      )
+      const weighted = scoreWeighted({ responses: graded.results, points: weights })
+
+      effectivePassScore = Number(paper?.pass_score ?? PASS_SCORE)
+      score = weighted.percent
+      passed = weighted.possible > 0 && weighted.percent >= effectivePassScore
+    }
 
     // P10.2: compare this answer sequence against other learners' recent
     // attempts on the same subject. Options are shuffled per attempt, so two
@@ -103,8 +130,8 @@ export async function POST(request) {
           correct: r.correct,
           ms: r.ms
         })),
-        score: graded.score,
-        passed: graded.passed,
+        score,
+        passed,
         flags,
         submitted_at: new Date().toISOString()
       })
@@ -128,9 +155,9 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      score: graded.score,
-      passed: graded.passed,
-      passScore: PASS_SCORE,
+      score,
+      passed,
+      passScore: effectivePassScore,
       total: graded.total,
       correctCount: graded.correctCount,
       weakConcepts: graded.weakConcepts,
@@ -138,7 +165,7 @@ export async function POST(request) {
       mode,
       // Self-paced passes still have to explain themselves (P10.5). Classroom
       // passes go to a teacher instead (P10.4).
-      vivaRequired: vivaRequired({ mode, passed: graded.passed }),
+      vivaRequired: vivaRequired({ mode, passed }),
       // The learner sees their own flags — being quietly marked would be
       // indefensible — but they are described, never scored or accused.
       integrityNotes: summarizeFlags(flags).kinds,
