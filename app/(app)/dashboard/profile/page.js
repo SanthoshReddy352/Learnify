@@ -1,25 +1,30 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { ArrowLeft, User, BookOpen, Briefcase, GraduationCap } from 'lucide-react'
+import { BookOpen, Briefcase, GraduationCap, User } from 'lucide-react'
+import { PageHeader, PageLoading } from '@/components/shared/page'
 
-function ProfilePageFallback() {
+// The API rejects a profile missing any of these, so the form has to ask for
+// exactly the same set — otherwise a blank Goals field only fails server-side
+// with a generic "Missing required fields".
+const REQUIRED_FIELDS = ['full_name', 'education_level', 'preferred_learning_style', 'learning_goals']
+
+/** Label with a consistent required marker. */
+function FieldLabel({ htmlFor, children, required }) {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="animate-pulse flex items-center gap-2 text-muted-foreground">
-        <User className="h-6 w-6 text-primary" />
-        <span className="text-lg font-medium">Loading Profile...</span>
-      </div>
-    </div>
+    <Label htmlFor={htmlFor} className="flex items-center gap-1">
+      {children}
+      {required && <span className="text-destructive" aria-hidden="true">*</span>}
+    </Label>
   )
 }
 
@@ -36,7 +41,7 @@ function ProfilePageContent() {
     preferred_learning_style: '',
     learning_schedule: ''
   })
-  
+
   const nextPath = searchParams.get('next')
 
   useEffect(() => {
@@ -74,12 +79,17 @@ function ProfilePageContent() {
     loadProfile()
   }, [router])
 
+  const missingRequired = useMemo(
+    () => REQUIRED_FIELDS.filter((field) => !formData[field]?.trim()),
+    [formData]
+  )
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    // Basic Validation
-    if (!formData.full_name || !formData.education_level || !formData.preferred_learning_style) {
-      toast.error('Please fill in all required fields')
+
+    if (missingRequired.length > 0) {
+      toast.error('Fill in every required field before saving')
+      document.getElementById(missingRequired[0])?.focus()
       return
     }
 
@@ -116,179 +126,165 @@ function ProfilePageContent() {
   }
 
   if (loading) {
-    return <ProfilePageFallback />
+    return <PageLoading showStats={false} rows={2} />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-6 md:p-10">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push('/dashboard')}
-            className="h-10 w-10 hover:bg-foreground/5"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              Your Profile
-            </h1>
-            <p className="text-muted-foreground">Tell us about yourself to get personalized learning paths</p>
-          </div>
-        </div>
+    <div className="mx-auto w-full max-w-3xl space-y-8">
+      <PageHeader
+        eyebrow="Account"
+        eyebrowIcon={User}
+        title="Your profile"
+        description="Learnify uses these details to pitch topic depth, examples, and pacing at the right level for you."
+        onBack={() => router.push('/dashboard')}
+        backLabel="Back to dashboard"
+      />
 
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-6">
-            {/* Personal Info Card */}
-            <Card className="glass-card border-border">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-primary" />
-                  <CardTitle>Personal Details</CardTitle>
-                </div>
-                <CardDescription>Basic information to personalize your experience</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name *</Label>
-                  <Input 
-                    id="full_name" 
-                    placeholder="e.g. Alex Doe" 
-                    value={formData.full_name}
-                    onChange={(e) => handleChange('full_name', e.target.value)}
-                    className="bg-background/50 border-border"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="occupation">Occupation</Label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="occupation" 
-                      placeholder="e.g. Software Engineer" 
-                      className="pl-9 bg-background/50 border-border" 
-                      value={formData.occupation}
-                      onChange={(e) => handleChange('occupation', e.target.value)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-primary" />
+              <CardTitle className="text-lg">Personal details</CardTitle>
+            </div>
+            <CardDescription>Basic information used to personalize your experience.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <FieldLabel htmlFor="full_name" required>Full name</FieldLabel>
+              <Input
+                id="full_name"
+                placeholder="e.g. Alex Doe"
+                value={formData.full_name}
+                onChange={(e) => handleChange('full_name', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel htmlFor="occupation">Occupation</FieldLabel>
+              <div className="relative">
+                <Briefcase className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="occupation"
+                  placeholder="e.g. Software Engineer"
+                  className="pl-9"
+                  value={formData.occupation}
+                  onChange={(e) => handleChange('occupation', e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-            {/* Learning Preferences Card */}
-            <Card className="glass-card border-border">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5 text-primary" />
-                  <CardTitle>Education & Learning Style</CardTitle>
-                </div>
-                <CardDescription>Helps us tailor the complexity and format of topics</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="education_level">Education Level *</Label>
-                    <Select 
-                      value={formData.education_level} 
-                      onValueChange={(val) => handleChange('education_level', val)}
-                    >
-                      <SelectTrigger className="bg-background/50 border-border">
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="High School">High School</SelectItem>
-                        <SelectItem value="Undergraduate">Undergraduate</SelectItem>
-                        <SelectItem value="Graduate">Graduate</SelectItem>
-                        <SelectItem value="PhD">PhD</SelectItem>
-                        <SelectItem value="Self-Taught">Self-Taught</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="learning_style">Preferred Learning Style *</Label>
-                    <Select 
-                      value={formData.preferred_learning_style} 
-                      onValueChange={(val) => handleChange('preferred_learning_style', val)}
-                    >
-                      <SelectTrigger className="bg-background/50 border-border">
-                        <SelectValue placeholder="Select style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Visual">Visual (Images, Diagrams)</SelectItem>
-                        <SelectItem value="Auditory">Auditory (Listening, Discussing)</SelectItem>
-                        <SelectItem value="Reading/Writing">Reading & Writing</SelectItem>
-                        <SelectItem value="Kinesthetic">Kinesthetic (Hands-on)</SelectItem>
-                        <SelectItem value="Project-based">Project-based</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="learning_schedule">Typical Learning Schedule</Label>
-                  <Select 
-                    value={formData.learning_schedule} 
-                    onValueChange={(val) => handleChange('learning_schedule', val)}
-                  >
-                    <SelectTrigger className="bg-background/50 border-border">
-                      <SelectValue placeholder="How often do you learn?" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Daily (30+ mins)">Daily (30+ mins)</SelectItem>
-                      <SelectItem value="Few times a week">Few times a week</SelectItem>
-                      <SelectItem value="Weekends only">Weekends only</SelectItem>
-                      <SelectItem value="Sporadic">Sporadic</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Goals Card */}
-            <Card className="glass-card border-border">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-primary" />
-                  <CardTitle>Learning Goals</CardTitle>
-                </div>
-                <CardDescription>What do you hope to achieve?</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Label htmlFor="goals">Goals *</Label>
-                  <Textarea 
-                    id="goals" 
-                    placeholder="e.g. I want to learn React to build my own startup..." 
-                    className="min-h-[100px] bg-background/50 border-border"
-                    value={formData.learning_goals}
-                    onChange={(e) => handleChange('learning_goals', e.target.value)}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end pt-4 border-t border-border/60">
-                <Button 
-                  type="submit" 
-                  disabled={saving}
-                  className="bg-primary hover:bg-primary/90 text-white min-w-[150px] shadow-lg shadow-primary/20"
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-primary" />
+              <CardTitle className="text-lg">Education and learning style</CardTitle>
+            </div>
+            <CardDescription>Sets the complexity and format of the topics we generate.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <FieldLabel htmlFor="education_level" required>Education level</FieldLabel>
+                <Select
+                  value={formData.education_level}
+                  onValueChange={(val) => handleChange('education_level', val)}
                 >
-                  {saving ? 'Saving...' : 'Save Profile'}
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        </form>
-      </div>
+                  <SelectTrigger id="education_level">
+                    <SelectValue placeholder="Select level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="High School">High School</SelectItem>
+                    <SelectItem value="Undergraduate">Undergraduate</SelectItem>
+                    <SelectItem value="Graduate">Graduate</SelectItem>
+                    <SelectItem value="PhD">PhD</SelectItem>
+                    <SelectItem value="Self-Taught">Self-Taught</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabel htmlFor="preferred_learning_style" required>Preferred learning style</FieldLabel>
+                <Select
+                  value={formData.preferred_learning_style}
+                  onValueChange={(val) => handleChange('preferred_learning_style', val)}
+                >
+                  <SelectTrigger id="preferred_learning_style">
+                    <SelectValue placeholder="Select style" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Visual">Visual (images, diagrams)</SelectItem>
+                    <SelectItem value="Auditory">Auditory (listening, discussing)</SelectItem>
+                    <SelectItem value="Reading/Writing">Reading and writing</SelectItem>
+                    <SelectItem value="Kinesthetic">Kinesthetic (hands-on)</SelectItem>
+                    <SelectItem value="Project-based">Project-based</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <FieldLabel htmlFor="learning_schedule">Typical learning schedule</FieldLabel>
+              <Select
+                value={formData.learning_schedule}
+                onValueChange={(val) => handleChange('learning_schedule', val)}
+              >
+                <SelectTrigger id="learning_schedule">
+                  <SelectValue placeholder="How often do you learn?" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Daily (30+ mins)">Daily (30+ mins)</SelectItem>
+                  <SelectItem value="Few times a week">Few times a week</SelectItem>
+                  <SelectItem value="Weekends only">Weekends only</SelectItem>
+                  <SelectItem value="Sporadic">Sporadic</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              <CardTitle className="text-lg">Learning goals</CardTitle>
+            </div>
+            <CardDescription>What you want to achieve — the more specific, the better the roadmap.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <FieldLabel htmlFor="learning_goals" required>Goals</FieldLabel>
+              <Textarea
+                id="learning_goals"
+                placeholder="e.g. I want to learn React well enough to ship the frontend for my own startup in three months."
+                className="min-h-[120px]"
+                value={formData.learning_goals}
+                onChange={(e) => handleChange('learning_goals', e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {missingRequired.length > 0
+              ? `${missingRequired.length} required ${missingRequired.length === 1 ? 'field' : 'fields'} left to fill.`
+              : 'All required fields are filled.'}
+          </p>
+          <Button type="submit" disabled={saving} className="sm:min-w-[160px]">
+            {saving ? 'Saving…' : 'Save profile'}
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={<ProfilePageFallback />}>
+    <Suspense fallback={<PageLoading showStats={false} rows={2} />}>
       <ProfilePageContent />
     </Suspense>
   )

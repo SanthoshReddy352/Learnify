@@ -4,21 +4,21 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  ArrowLeft,
   ArrowRight,
   BookOpen,
   ChartColumn,
   ClipboardList,
   Layers3,
-  Mail,
   Plus,
   School,
   Sparkles,
   Users
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { EmptyState, PageHeader, PageLoading, Panel, SectionHeading, StatCard, StatGrid } from '@/components/shared/page'
 
 export default function TeacherClassroomDetailPage() {
   const params = useParams()
@@ -119,149 +119,118 @@ export default function TeacherClassroomDetailPage() {
   }
 
   if (loading || !detail) {
-    return <div className="text-muted-foreground">Loading classroom...</div>
+    return <PageLoading />
   }
 
   return (
-    <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[28px] border border-border bg-gradient-to-br from-primary/15 via-background to-emerald-500/10 px-6 py-7 shadow-[0_24px_80px_-48px_rgba(34,197,94,0.55)] md:px-8 md:py-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_28%)]" />
-        <div className="relative flex flex-col gap-6">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-3xl">
-              <Button variant="ghost" className="mb-4 -ml-2 w-fit text-muted-foreground" onClick={() => router.push('/teacher/classrooms')}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Teacher Portal
-              </Button>
-              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/5 px-3 py-1 text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                <School className="h-3.5 w-3.5 text-primary" />
-                Teacher Classroom
-              </div>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">{detail.classroom.name}</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-                {detail.classroom.description || 'Manage published courses, student access, and classroom performance from one place.'}
-              </p>
-            </div>
+    <>
+      <PageHeader
+        eyebrow="Teacher classroom"
+        eyebrowIcon={School}
+        title={detail.classroom.name}
+        description={detail.classroom.description || 'Manage published courses, student access, and classroom performance from one place.'}
+        onBack={() => router.push('/teacher/classrooms')}
+        backLabel="Teacher portal"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/students`)}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Students
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/assessments`)}
+            >
+              <ClipboardList className="mr-2 h-4 w-4" />
+              Assessments
+            </Button>
+            <Button onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/analytics`)}>
+              <ChartColumn className="mr-2 h-4 w-4" />
+              Analytics
+            </Button>
+          </>
+        }
+      />
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Button
-                variant="outline"
-                className="h-11 border-border bg-foreground/5"
-                onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/students`)}
-              >
-                <Users className="mr-2 h-4 w-4" />
-                Manage Students
-              </Button>
-              <Button
-                variant="outline"
-                className="h-11 border-border bg-foreground/5"
-                onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/assessments`)}
-              >
-                <ClipboardList className="mr-2 h-4 w-4" />
-                Assessments
-              </Button>
-              <Button
-                className="h-11"
-                onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/analytics`)}
-              >
-                <ChartColumn className="mr-2 h-4 w-4" />
-                Open Analytics
-              </Button>
-            </div>
-          </div>
+      <StatGrid>
+        <StatCard label="Published courses" value={summary.publishedCourses} icon={BookOpen} />
+        <StatCard label="Active students" value={summary.activeStudents} icon={Users} />
+        <StatCard label="Pending invites" value={summary.pendingInvites} icon={ClipboardList} />
+        <StatCard
+          label="Available to attach"
+          value={unassignedSubjects.length}
+          icon={Layers3}
+          hint="Subjects not yet published here"
+        />
+      </StatGrid>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Card className="border-border bg-white/[0.04] shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription>Published courses</CardDescription>
-                <CardTitle className="text-3xl">{summary.publishedCourses}</CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-border bg-white/[0.04] shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription>Active students</CardDescription>
-                <CardTitle className="text-3xl">{summary.activeStudents}</CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-border bg-white/[0.04] shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription>Pending invites</CardDescription>
-                <CardTitle className="text-3xl">{summary.pendingInvites}</CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-border bg-white/[0.04] shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription>Available to attach</CardDescription>
-                <CardTitle className="text-3xl">{unassignedSubjects.length}</CardTitle>
-              </CardHeader>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_360px]">
-        <div className="space-y-6">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Published Courses</h2>
-              <p className="text-sm text-muted-foreground">Subjects currently exposed to students inside this classroom.</p>
-            </div>
-          </div>
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,360px)]">
+        <div className="space-y-4">
+          <SectionHeading
+            title="Published courses"
+            description="Subjects currently visible to students inside this classroom."
+          />
 
           {detail.courses.length === 0 ? (
-            <Card className="rounded-[24px] border-dashed border-border bg-black/10">
-              <CardHeader className="items-center text-center">
-                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                  <BookOpen className="h-8 w-8 text-primary" />
-                </div>
-                <CardTitle>No courses attached yet</CardTitle>
-                <CardDescription>Attach one of your existing subjects to publish it into this classroom.</CardDescription>
-              </CardHeader>
-            </Card>
+            <EmptyState
+              icon={BookOpen}
+              title="No courses attached yet"
+              description="Attach one of your existing subjects to publish it into this classroom. Students only see subjects you attach here."
+            />
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {detail.courses.map((course, index) => (
-                <Card key={course.id} className="group flex h-full flex-col rounded-[24px] border-border bg-gradient-to-br from-black/20 to-white/[0.03] hover:border-primary/30">
-                  <CardHeader className="space-y-4">
+                <Card key={course.id} className="flex flex-col">
+                  <CardHeader>
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Course {index + 1}</div>
-                        <CardTitle className="mt-2 line-clamp-2 text-xl">{course.subjects?.title || 'Untitled course'}</CardTitle>
-                        <CardDescription className="mt-2 line-clamp-3 leading-6">
-                          {course.subjects?.description || 'No description provided.'}
-                        </CardDescription>
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                          Course {index + 1}
+                        </p>
+                        <CardTitle className="line-clamp-2 text-lg">
+                          {course.subjects?.title || 'Untitled course'}
+                        </CardTitle>
                       </div>
-                      <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                      <Badge variant="outline" className="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                         Published
-                      </div>
+                      </Badge>
                     </div>
+                    <CardDescription className="line-clamp-2 leading-6">
+                      {course.subjects?.description || 'No description provided.'}
+                    </CardDescription>
                   </CardHeader>
 
                   <CardContent className="mt-auto space-y-4">
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="rounded-2xl border border-border bg-white/[0.04] px-4 py-3">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Layers3 className="h-4 w-4 text-primary" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Layers3 className="h-3.5 w-3.5 text-primary" />
                           Order
                         </div>
-                        <div className="mt-2 text-lg font-semibold">{(course.order_index || 0) + 1}</div>
+                        <div className="text-xl font-semibold tabular-nums">{(course.order_index || 0) + 1}</div>
                       </div>
-                      <div className="rounded-2xl border border-border bg-white/[0.04] px-4 py-3">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Sparkles className="h-4 w-4 text-primary" />
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Sparkles className="h-3.5 w-3.5 text-primary" />
                           Cheat sheet
                         </div>
-                        <div className="mt-2 text-lg font-semibold">{course.subjects?.cheat_sheet ? 'Ready' : 'Pending'}</div>
+                        <div className="text-xl font-semibold">
+                          {course.subjects?.cheat_sheet ? 'Ready' : 'Pending'}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-border pt-4">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <BookOpen className="h-4 w-4 text-primary" />
-                        Live in classroom
-                      </div>
-                      <Button variant="ghost" onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/analytics`)}>
-                        View Analytics
+                    <div className="border-t border-border pt-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="-ml-3"
+                        onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/analytics`)}
+                      >
+                        View analytics
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
                     </div>
@@ -273,106 +242,81 @@ export default function TeacherClassroomDetailPage() {
         </div>
 
         <div className="space-y-4">
-          <Card className="rounded-[24px] border-border bg-black/10">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-xl">Attach a Course</CardTitle>
-              <CardDescription>Publish an existing Learnify subject inside this classroom.</CardDescription>
+              <CardTitle className="text-lg">Attach a course</CardTitle>
+              <CardDescription>Publish one of your existing subjects into this classroom.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="subject-select">Available subjects</Label>
-                <select
-                  id="subject-select"
-                  value={subjectId}
-                  onChange={(event) => setSubjectId(event.target.value)}
-                  className="flex h-11 w-full rounded-xl border border-border bg-background/80 px-3 py-2 text-sm outline-none transition-colors focus:border-primary/40"
-                >
-                  <option value="">Select a subject</option>
-                  {unassignedSubjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>{subject.title}</option>
-                  ))}
-                </select>
-              </div>
-
               {unassignedSubjects.length === 0 ? (
-                <div className="rounded-2xl border border-border bg-white/[0.04] p-4 text-sm text-muted-foreground">
-                  All available subjects are already attached to this classroom.
-                </div>
+                <Panel className="text-sm text-muted-foreground">
+                  Every subject you own is already attached to this classroom.
+                </Panel>
               ) : (
-                <Button className="w-full h-11" onClick={handleAttachCourse} disabled={attaching}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  {attaching ? 'Attaching...' : 'Attach Course'}
-                </Button>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="subject-select">Available subjects</Label>
+                    <select
+                      id="subject-select"
+                      value={subjectId}
+                      onChange={(event) => setSubjectId(event.target.value)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="">Select a subject</option>
+                      {unassignedSubjects.map((subject) => (
+                        <option key={subject.id} value={subject.id}>{subject.title}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <Button className="w-full" onClick={handleAttachCourse} disabled={attaching}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {attaching ? 'Attaching…' : 'Attach course'}
+                  </Button>
+                </>
               )}
             </CardContent>
           </Card>
 
-          <Card className="rounded-[24px] border-border bg-black/10">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-xl">Classroom Access</CardTitle>
-              <CardDescription>Jump to the most common management tasks.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                className="h-11 w-full justify-between border-border bg-white/[0.04]"
-                onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/students`)}
-              >
-                <span className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary" />
-                  Students and Invites
-                </span>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-11 w-full justify-between border-border bg-white/[0.04]"
-                onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/analytics`)}
-              >
-                <span className="flex items-center gap-2">
-                  <ChartColumn className="h-4 w-4 text-primary" />
-                  Performance Analytics
-                </span>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-[24px] border-border bg-black/10">
-            <CardHeader>
-              <CardTitle className="text-xl">Roster Snapshot</CardTitle>
-              <CardDescription>Quick view of active learners in this classroom.</CardDescription>
+              <CardTitle className="text-lg">Roster snapshot</CardTitle>
+              <CardDescription>
+                {summary.activeStudents === 0
+                  ? 'No students have joined yet.'
+                  : `${summary.activeStudents} active ${summary.activeStudents === 1 ? 'student' : 'students'}.`}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {recentMembers.length === 0 ? (
-                <div className="rounded-2xl border border-border bg-white/[0.04] p-4 text-sm text-muted-foreground">
-                  No active students yet. Invite learners from the students page.
-                </div>
+                <Panel className="text-sm text-muted-foreground">
+                  Invite learners by email or share the class link from the students page.
+                </Panel>
               ) : (
                 recentMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between rounded-2xl border border-border bg-white/[0.04] px-4 py-3">
+                  <Panel key={member.id} className="flex items-center justify-between gap-3 py-3">
                     <div className="min-w-0">
-                      <div className="truncate font-medium text-foreground">
+                      <div className="truncate text-sm font-medium">
                         {member.profile?.full_name || member.profile?.username || 'Student'}
                       </div>
-                      <div className="truncate text-sm text-muted-foreground">
+                      <div className="truncate text-xs text-muted-foreground">
                         {member.profile?.education_level || 'Education level not set'}
                       </div>
                     </div>
-                    <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+                    <Badge variant="outline" className="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                       Active
-                    </div>
-                  </div>
+                    </Badge>
+                  </Panel>
                 ))
               )}
 
               <Button
-                variant="ghost"
+                variant="outline"
                 className="w-full justify-between"
                 onClick={() => router.push(`/teacher/classrooms/${params.classroomId}/students`)}
               >
                 <span className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-primary" />
+                  <Users className="h-4 w-4" />
                   Open full roster
                 </span>
                 <ArrowRight className="h-4 w-4" />
@@ -381,6 +325,6 @@ export default function TeacherClassroomDetailPage() {
           </Card>
         </div>
       </section>
-    </div>
+    </>
   )
 }

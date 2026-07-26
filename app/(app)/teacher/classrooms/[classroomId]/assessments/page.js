@@ -36,16 +36,27 @@ export default function ClassroomAssessmentsPage() {
         fetch(`/api/teacher/classrooms/${params.classroomId}`)
       ])
 
-      const assessmentsData = await assessmentsRes.json()
-      if (!assessmentsRes.ok) throw new Error(assessmentsData.error || 'Failed to load assessments')
+      // The two requests are INDEPENDENT and are handled independently.
+      //
+      // They used to share one try/catch that rethrew on the first failure, so
+      // when the assessments list errored the course dropdown was never
+      // populated either — one broken endpoint silently disabled a form that
+      // had nothing to do with it. Each response now reports its own failure and
+      // leaves the other alone.
+      const assessmentsData = await assessmentsRes.json().catch(() => ({}))
+      if (assessmentsRes.ok) {
+        setAssessments(assessmentsData.assessments || [])
+      } else {
+        toast.error(assessmentsData.error || 'Failed to load assessments')
+      }
 
-      const classroomData = await classroomRes.json()
-      if (!classroomRes.ok) throw new Error(classroomData.error || 'Failed to load classroom')
-
-      setAssessments(assessmentsData.assessments || [])
-      setCourses(classroomData.courses || [])
-      if (!subjectId && classroomData.courses?.[0]?.subject_id) {
-        setSubjectId(classroomData.courses[0].subject_id)
+      const classroomData = await classroomRes.json().catch(() => ({}))
+      if (classroomRes.ok) {
+        const loaded = classroomData.courses || []
+        setCourses(loaded)
+        if (!subjectId && loaded[0]?.subject_id) setSubjectId(loaded[0].subject_id)
+      } else {
+        toast.error(classroomData.error || 'Failed to load classroom')
       }
     } catch (error) {
       toast.error(error.message)

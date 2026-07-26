@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  ArrowLeft,
   Copy,
   Link2,
   Mail,
@@ -30,7 +29,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '@/components/ui/alert-dialog'
+import { PageHeader, PageLoading, Panel, StatCard, StatGrid } from '@/components/shared/page'
 import { formatIst } from '@/lib/classrooms/format'
+
+/** Dashed in-card placeholder for an empty roster or invite list. */
+function ListEmpty({ children }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+      {children}
+    </div>
+  )
+}
 
 export default function TeacherClassroomStudentsPage() {
   const params = useParams()
@@ -179,302 +188,267 @@ export default function TeacherClassroomStudentsPage() {
   }
 
   if (loading || !detail) {
-    return <div className="text-muted-foreground">Loading classroom students...</div>
+    return <PageLoading stats={3} rows={2} />
   }
 
   return (
     <>
-      <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-[32px] border border-border bg-[linear-gradient(135deg,rgba(14,165,233,0.14),rgba(15,23,42,0.9)_52%,rgba(34,197,94,0.14))] px-5 py-6 shadow-[0_24px_90px_-52px_rgba(14,165,233,0.75)] sm:px-7 sm:py-7 lg:px-8">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.18),transparent_28%)]" />
-          <div className="relative flex flex-col gap-6">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-3xl">
-                <Button
-                  variant="ghost"
-                  className="mb-4 -ml-3 w-fit text-white/75 hover:bg-foreground/10 hover:text-white"
-                  onClick={() => router.push(`/teacher/classrooms/${params.classroomId}`)}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Classroom
-                </Button>
-                <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-white/80">
-                  <Users className="h-3.5 w-3.5" />
-                  Student Access
-                </div>
-                <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Roster, invites, and join link</h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
-                  Add students by email, share the classroom join link, and keep pending invites clean. Students must finish their profile before they can enter.
-                </p>
-              </div>
+      <PageHeader
+        eyebrow="Student access"
+        eyebrowIcon={Users}
+        title="Roster and invites"
+        description="Add students by email, share the class link, and keep pending invites clean. Students must finish their profile before they can enter."
+        onBack={() => router.push(`/teacher/classrooms/${params.classroomId}`)}
+        backLabel="Back to classroom"
+      />
 
-              <Card className="w-full border-border bg-foreground/10 shadow-none lg:max-w-sm">
-                <CardHeader className="space-y-3 pb-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-lg text-white">Share class link</CardTitle>
-                      <CardDescription className="text-white/65">One reusable link for this classroom.</CardDescription>
-                    </div>
-                    <Badge variant="outline" className="border-emerald-300/30 bg-emerald-400/10 text-emerald-100">
-                      Live
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Input
-                    value={detail.shareLink || ''}
-                    readOnly
-                    className="border-border bg-slate-950/50 text-white placeholder:text-white/40"
-                  />
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button className="flex-1" onClick={() => copyLink(detail.shareLink, 'Class link copied')}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy Link
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 border-border bg-foreground/5 text-white hover:bg-foreground/10"
-                      onClick={() => router.push(detail.shareLink.replace(window.location.origin, ''))}
-                    >
-                      <Link2 className="mr-2 h-4 w-4" />
-                      Preview
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+      <StatGrid className="xl:grid-cols-3">
+        <StatCard label="Active students" value={activeMembers.length} icon={Users} />
+        <StatCard
+          label="Pending invites"
+          value={pendingInvites.length}
+          icon={Mail}
+          hint="Emailed, not yet accepted"
+        />
+        <StatCard
+          label="Claimed invites"
+          value={invitedMembers.length}
+          icon={UserPlus}
+          hint="Accounts matched, profile pending"
+        />
+      </StatGrid>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Card className="border-border bg-foreground/10 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardDescription className="text-white/65">Active students</CardDescription>
-                  <CardTitle className="text-3xl text-white">{activeMembers.length}</CardTitle>
-                </CardHeader>
-              </Card>
-              <Card className="border-border bg-foreground/10 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardDescription className="text-white/65">Pending invite emails</CardDescription>
-                  <CardTitle className="text-3xl text-white">{pendingInvites.length}</CardTitle>
-                </CardHeader>
-              </Card>
-              <Card className="border-border bg-foreground/10 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardDescription className="text-white/65">Claimed invite accounts</CardDescription>
-                  <CardTitle className="text-3xl text-white">{invitedMembers.length}</CardTitle>
-                </CardHeader>
-              </Card>
-              <Card className="border-border bg-foreground/10 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardDescription className="text-white/65">Profile requirement</CardDescription>
-                  <CardTitle className="text-lg text-white">Required before join</CardTitle>
-                </CardHeader>
-              </Card>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1.5">
+              <CardTitle className="text-lg">Class link</CardTitle>
+              <CardDescription>One reusable link — anyone with it can request to join this classroom.</CardDescription>
             </div>
+            <Badge variant="outline" className="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              Live
+            </Badge>
           </div>
-        </section>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2 sm:flex-row">
+          <Input value={detail.shareLink || ''} readOnly className="font-mono text-xs sm:flex-1" />
+          <div className="flex gap-2">
+            <Button className="flex-1 sm:flex-none" onClick={() => copyLink(detail.shareLink, 'Class link copied')}>
+              <Copy className="mr-2 h-4 w-4" />
+              Copy
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 sm:flex-none"
+              onClick={() => router.push(detail.shareLink.replace(window.location.origin, ''))}
+            >
+              <Link2 className="mr-2 h-4 w-4" />
+              Preview
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,420px)]">
-          <div className="space-y-6">
-            <Card className="rounded-[28px] border-border bg-black/10">
-              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <CardTitle>Active students</CardTitle>
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(300px,380px)]">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1.5">
+                  <CardTitle className="text-lg">Active students</CardTitle>
                   <CardDescription>Students who can currently access this classroom.</CardDescription>
                 </div>
-                <Badge variant="outline" className="w-fit border-emerald-500/20 bg-emerald-500/10 text-emerald-200">
-                  {activeMembers.length} active
-                </Badge>
-              </CardHeader>
-              <CardContent>
-                {activeMembers.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-border bg-white/[0.03] p-6 text-sm text-muted-foreground">
-                    No active students yet. Invite students by email or share the class link.
-                  </div>
-                ) : (
-                  <div className="grid gap-3">
-                    {activeMembers.map((member) => (
-                      <div key={member.id} className="rounded-3xl border border-border bg-white/[0.04] p-4 sm:p-5">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <div className="text-base font-semibold">
-                                {member.profile?.full_name || member.profile?.username || 'Student'}
-                              </div>
-                              <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-200">
-                                Active
-                              </Badge>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {member.email || 'Email unavailable'}
-                            </div>
-                            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                              <span>{member.profile?.education_level || 'Education level not set'}</span>
-                              <span>Joined {formatIst(member.joined_at)}</span>
-                            </div>
-                          </div>
-
-                          <Button
-                            variant="outline"
-                            className="border-red-500/20 bg-red-500/5 text-red-200 hover:bg-red-500/10 hover:text-red-100"
-                            onClick={() => setRemovingMember(member)}
-                          >
-                            <UserMinus className="mr-2 h-4 w-4" />
-                            Remove
-                          </Button>
-                        </div>
+                <Badge variant="secondary" className="shrink-0">{activeMembers.length}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {activeMembers.length === 0 ? (
+                <ListEmpty>
+                  No active students yet. Invite students by email or share the class link above.
+                </ListEmpty>
+              ) : (
+                activeMembers.map((member) => (
+                  <Panel key={member.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <div className="truncate font-medium">
+                        {member.profile?.full_name || member.profile?.username || 'Student'}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-[28px] border-border bg-black/10">
-              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <CardTitle>Pending invite emails</CardTitle>
-                  <CardDescription>Only the newest active invite per email is kept visible.</CardDescription>
-                </div>
-                <Badge variant="outline" className="w-fit border-sky-400/20 bg-sky-400/10 text-sky-100">
-                  {pendingInvites.length} waiting
-                </Badge>
-              </CardHeader>
-              <CardContent>
-                {pendingInvites.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-border bg-white/[0.03] p-6 text-sm text-muted-foreground">
-                    No pending invite emails. Students who join from the class link will bypass this list and appear in the roster directly.
-                  </div>
-                ) : (
-                  <div className="grid gap-3">
-                    {pendingInvites.map((invite) => (
-                      <div key={invite.id} className="rounded-3xl border border-border bg-white/[0.04] p-4 sm:p-5">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <div className="text-base font-semibold">{invite.email}</div>
-                              <Badge variant="outline" className="border-primary/20 bg-primary/10 text-primary">
-                                Pending
-                              </Badge>
-                            </div>
-                            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                              <span>Sent {formatIst(invite.created_at)}</span>
-                              <span>Expires {formatIst(invite.expires_at)}</span>
-                            </div>
-                          </div>
-
-                          <Button
-                            variant="outline"
-                            className="border-red-500/20 bg-red-500/5 text-red-200 hover:bg-red-500/10 hover:text-red-100"
-                            onClick={() => handleRevokeInvite(invite.id)}
-                            disabled={revokingInviteId === invite.id}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            {revokingInviteId === invite.id ? 'Revoking...' : 'Revoke'}
-                          </Button>
-                        </div>
+                      <div className="truncate text-sm text-muted-foreground">
+                        {member.email || 'Email unavailable'}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-6">
-            <Card className="rounded-[28px] border-border bg-black/10">
-              <CardHeader>
-                <CardTitle>Invite students by email</CardTitle>
-                <CardDescription>Add one email per line or separate emails with commas.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  value={emailInput}
-                  onChange={(event) => setEmailInput(event.target.value)}
-                  placeholder={'student1@example.com\nstudent2@example.com'}
-                  className="min-h-[180px] rounded-3xl border-border bg-background/70"
-                />
-                <Button className="h-11 w-full" onClick={handleInvite} disabled={submitting}>
-                  <Send className="mr-2 h-4 w-4" />
-                  {submitting ? 'Creating invites...' : 'Create Invite Emails'}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-[28px] border-border bg-black/10">
-              <CardHeader>
-                <CardTitle>Join flow rules</CardTitle>
-                <CardDescription>These rules now apply on both teacher and student sides.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <div className="rounded-3xl border border-border bg-white/[0.04] p-4">
-                  <div className="flex items-center gap-2 text-foreground">
-                    <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                    Profile completion is required
-                  </div>
-                  <p className="mt-2 leading-6">Students must complete their profile before joining from an invite email or the class link.</p>
-                </div>
-                <div className="rounded-3xl border border-border bg-white/[0.04] p-4">
-                  <div className="flex items-center gap-2 text-foreground">
-                    <Mail className="h-4 w-4 text-sky-300" />
-                    Duplicate pending invites are replaced
-                  </div>
-                  <p className="mt-2 leading-6">Sending a new invite to the same email revokes older pending records so students see one clean invite.</p>
-                </div>
-                <div className="rounded-3xl border border-border bg-white/[0.04] p-4">
-                  <div className="flex items-center gap-2 text-foreground">
-                    <UserPlus className="h-4 w-4 text-primary" />
-                    Share link and email invites work together
-                  </div>
-                  <p className="mt-2 leading-6">If a student joins using the class link, any matching pending email invite is automatically cleared.</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {(generatedLinks.length > 0 || skippedInvites.length > 0) && (
-              <Card className="rounded-[28px] border-border bg-black/10">
-                <CardHeader>
-                  <CardTitle>Latest invite results</CardTitle>
-                  <CardDescription>Copy links directly if you need to share them outside email.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {generatedLinks.map((invite) => (
-                    <div key={invite.email} className="rounded-3xl border border-border bg-white/[0.04] p-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <div className="font-medium">{invite.email}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">Expires {formatIst(invite.expiresAt)} IST</div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          className="border-border"
-                          onClick={() => copyLink(invite.inviteUrl, 'Invite link copied')}
-                        >
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy Invite Link
-                        </Button>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>{member.profile?.education_level || 'Education level not set'}</span>
+                        <span>Joined {formatIst(member.joined_at)}</span>
                       </div>
                     </div>
-                  ))}
 
-                  {skippedInvites.map((invite) => (
-                    <div key={`${invite.email}-${invite.reason}`} className="rounded-3xl border border-amber-400/20 bg-amber-400/5 p-4">
-                      <div className="font-medium text-amber-100">{invite.email}</div>
-                      <div className="mt-1 text-xs text-amber-100/70">
-                        {invite.reason === 'already_active'
-                          ? 'Skipped because this student is already active in the classroom.'
-                          : 'Skipped because this student already accepted an invite for this classroom.'}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setRemovingMember(member)}
+                    >
+                      <UserMinus className="mr-2 h-4 w-4" />
+                      Remove
+                    </Button>
+                  </Panel>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1.5">
+                  <CardTitle className="text-lg">Pending invite emails</CardTitle>
+                  <CardDescription>Only the newest active invite per email is kept.</CardDescription>
+                </div>
+                <Badge variant="secondary" className="shrink-0">{pendingInvites.length}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {pendingInvites.length === 0 ? (
+                <ListEmpty>
+                  No pending invite emails. Students who join from the class link skip this list and land in the roster directly.
+                </ListEmpty>
+              ) : (
+                pendingInvites.map((invite) => (
+                  <Panel key={invite.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate font-medium">{invite.email}</span>
+                        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                          Pending
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>Sent {formatIst(invite.created_at)}</span>
+                        <span>Expires {formatIst(invite.expires_at)}</span>
                       </div>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </section>
-      </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => handleRevokeInvite(invite.id)}
+                      disabled={revokingInviteId === invite.id}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {revokingInviteId === invite.id ? 'Revoking…' : 'Revoke'}
+                    </Button>
+                  </Panel>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Invite by email</CardTitle>
+              <CardDescription>One email per line, or separated by commas.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                value={emailInput}
+                onChange={(event) => setEmailInput(event.target.value)}
+                placeholder={'student1@example.com\nstudent2@example.com'}
+                className="min-h-[160px] font-mono text-sm"
+              />
+              <Button className="w-full" onClick={handleInvite} disabled={submitting}>
+                <Send className="mr-2 h-4 w-4" />
+                {submitting ? 'Creating invites…' : 'Create invites'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {(generatedLinks.length > 0 || skippedInvites.length > 0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Latest invite results</CardTitle>
+                <CardDescription>Copy a link directly if you need to share it outside email.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {generatedLinks.map((invite) => (
+                  <Panel key={invite.email} className="space-y-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{invite.email}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Expires {formatIst(invite.expiresAt)} IST
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => copyLink(invite.inviteUrl, 'Invite link copied')}
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy invite link
+                    </Button>
+                  </Panel>
+                ))}
+
+                {skippedInvites.map((invite) => (
+                  <Panel
+                    key={`${invite.email}-${invite.reason}`}
+                    className="border-amber-500/30 bg-amber-500/10"
+                  >
+                    <div className="truncate text-sm font-medium text-amber-700 dark:text-amber-400">
+                      {invite.email}
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-amber-700/80 dark:text-amber-400/80">
+                      {invite.reason === 'already_active'
+                        ? 'Skipped — already an active student in this classroom.'
+                        : 'Skipped — already accepted an invite for this classroom.'}
+                    </p>
+                  </Panel>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">How joining works</CardTitle>
+              <CardDescription>These rules apply on both the teacher and student side.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                {
+                  icon: ShieldCheck,
+                  title: 'Profile completion is required',
+                  body: 'Students must complete their profile before joining from an invite email or the class link.'
+                },
+                {
+                  icon: Mail,
+                  title: 'Duplicate invites are replaced',
+                  body: 'Re-inviting the same email revokes older pending records, so students only ever see one invite.'
+                },
+                {
+                  icon: UserPlus,
+                  title: 'Link and email invites work together',
+                  body: 'If a student joins via the class link, any matching pending email invite is cleared automatically.'
+                }
+              ].map((rule) => (
+                <Panel key={rule.title}>
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <rule.icon className="h-4 w-4 shrink-0 text-primary" />
+                    {rule.title}
+                  </div>
+                  <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{rule.body}</p>
+                </Panel>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
       <AlertDialog open={Boolean(removingMember)} onOpenChange={(open) => !open && setRemovingMember(null)}>
-        <AlertDialogContent className="border-border bg-card">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove student from classroom?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -484,7 +458,7 @@ export default function TeacherClassroomStudentsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-border hover:bg-foreground/5">Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRemoveStudent}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

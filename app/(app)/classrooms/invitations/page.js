@@ -5,19 +5,71 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
+  CalendarClock,
   CheckCircle2,
-  ClipboardList,
+  Link2,
   LogIn,
   Mail,
   ShieldCheck,
-  Sparkles,
   UserPlus
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState, PageHeader, PageLoading, Panel } from '@/components/shared/page'
 import { formatIst } from '@/lib/classrooms/format'
+
+/** One invite card, shared by the email-link invite and the pending list. */
+function InviteCard({
+  name,
+  description,
+  badge,
+  badgeClassName,
+  meta,
+  note,
+  primaryAction,
+  secondaryAction
+}) {
+  return (
+    <Card className="flex flex-col">
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <CardTitle className="text-lg">{name}</CardTitle>
+          <Badge variant="outline" className={badgeClassName}>
+            {badge}
+          </Badge>
+        </div>
+        <CardDescription className="leading-6">{description}</CardDescription>
+      </CardHeader>
+
+      <CardContent className="mt-auto space-y-4">
+        {meta.length > 0 && (
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            {meta.map((item) => (
+              <span key={item.label} className="inline-flex items-center gap-1.5">
+                {item.icon && <item.icon className="h-3.5 w-3.5" />}
+                {item.label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {note && (
+          <Panel className="flex gap-3 text-sm text-muted-foreground">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <p className="leading-6">{note}</p>
+          </Panel>
+        )}
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {primaryAction}
+          {secondaryAction}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 function ClassroomInvitationsContent() {
   const router = useRouter()
@@ -137,189 +189,152 @@ function ClassroomInvitationsContent() {
   }, [invitations, tokenInvitation])
 
   if (loading) {
-    return <div className="text-muted-foreground">Loading invitations...</div>
+    return <PageLoading showStats={false} rows={2} />
   }
 
-  return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[32px] border border-border bg-[linear-gradient(135deg,rgba(59,130,246,0.12),rgba(15,23,42,0.92)_55%,rgba(244,114,182,0.12))] px-5 py-6 shadow-[0_24px_80px_-52px_rgba(59,130,246,0.7)] sm:px-7 sm:py-7">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(244,114,182,0.18),transparent_32%)]" />
-        <div className="relative flex flex-col gap-6">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-white/80">
-              <ClipboardList className="h-3.5 w-3.5" />
-              Classroom Invitations
-            </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Join your classroom the clean way</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
-              Review pending invitations, sign in with the invited email, and complete your profile before joining.
-            </p>
-          </div>
+  const pendingCount = visibleInvitations.length + (tokenInvitation ? 1 : 0)
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Card className="border-border bg-foreground/10 shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-white/65">Pending invites</CardDescription>
-                <CardTitle className="text-3xl text-white">{invitations.length + (tokenInvitation ? 1 : 0)}</CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-border bg-foreground/10 shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-white/65">Invite email required</CardDescription>
-                <CardTitle className="text-lg text-white">Use the matching account</CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-border bg-foreground/10 shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-white/65">Profile gate</CardDescription>
-                <CardTitle className="text-lg text-white">Complete before join</CardTitle>
-              </CardHeader>
-            </Card>
-            <Card className="border-border bg-foreground/10 shadow-none">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-white/65">Student flow</CardDescription>
-                <CardTitle className="text-lg text-white">Email invite or class link</CardTitle>
-              </CardHeader>
-            </Card>
-          </div>
-        </div>
-      </section>
+  return (
+    <>
+      <PageHeader
+        eyebrow="Invitations"
+        eyebrowIcon={Mail}
+        title="Classroom invitations"
+        description="Accept an invite to join a classroom. Sign in with the email your teacher invited, and finish your profile first — both are required before you can enter."
+        actions={
+          <Button variant="outline" onClick={() => router.push('/classrooms')}>
+            My classrooms
+          </Button>
+        }
+      />
 
       {!user && (
-        <Card className="rounded-[28px] border-border bg-black/10">
+        <Card className="border-primary/30 bg-primary/5">
           <CardHeader>
-            <CardTitle>Sign in to review invitations</CardTitle>
+            <CardTitle className="text-lg">Sign in to review invitations</CardTitle>
             <CardDescription>
               {tokenInvitation?.emailHint
-                ? `Use the invited email address (${tokenInvitation.emailHint}) so the classroom invite can be claimed correctly.`
-                : 'Use the invited email address so the classroom invite can be claimed correctly.'}
+                ? `Use the invited email address (${tokenInvitation.emailHint}) so this invite can be claimed correctly.`
+                : 'Use the invited email address so your invite can be claimed correctly.'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3 sm:flex-row">
+          <CardContent className="flex flex-col gap-2 sm:flex-row">
             <Button asChild>
               <Link href={`/login?next=${nextPath}`}>
                 <LogIn className="mr-2 h-4 w-4" />
-                Sign In
+                Sign in
               </Link>
             </Button>
             <Button asChild variant="outline">
               <Link href={`/signup?next=${nextPath}`}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                Create Account
+                Create account
               </Link>
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {token && (
-        <Card className="rounded-[28px] border-sky-400/20 bg-sky-500/5">
-          <CardHeader>
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle>{tokenInvitation?.classrooms?.name || 'Invite from email link'}</CardTitle>
-              <Badge variant="outline" className="border-sky-400/20 bg-sky-400/10 text-sky-100">
-                Email link
-              </Badge>
-            </div>
-            <CardDescription>
-              {tokenInvitation
-                ? tokenInvitation.classrooms?.description || 'Open this invite to join the classroom.'
-                : tokenError || 'Checking your invite link.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {tokenInvitation ? (
-              <>
-                <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                  <span>Expires {formatIst(tokenInvitation.expires_at)} IST</span>
-                  {tokenInvitation.emailHint && <span>Invited email: {tokenInvitation.emailHint}</span>}
-                </div>
-
-                <div className="rounded-3xl border border-border bg-white/[0.04] p-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2 text-foreground">
-                    <Sparkles className="h-4 w-4 text-sky-300" />
-                    Before joining
-                  </div>
-                  <p className="mt-2 leading-6">
-                    Sign in with the invited email. If your profile is incomplete, you will be redirected to finish it first.
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row">
+      {(token || pendingCount > 0) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {token && (
+            tokenInvitation ? (
+              <InviteCard
+                name={tokenInvitation.classrooms?.name || 'Classroom invite'}
+                description={tokenInvitation.classrooms?.description || 'Open this invite to join the classroom.'}
+                badge="Email link"
+                badgeClassName="border-primary/30 bg-primary/10 text-primary"
+                meta={[
+                  { icon: CalendarClock, label: `Expires ${formatIst(tokenInvitation.expires_at)} IST` },
+                  ...(tokenInvitation.emailHint
+                    ? [{ icon: Mail, label: `Invited: ${tokenInvitation.emailHint}` }]
+                    : [])
+                ]}
+                note="Sign in with the invited email. If your profile is incomplete you'll be sent to finish it first."
+                primaryAction={
                   <Button
+                    className="sm:flex-1"
                     onClick={() => acceptInvite(token)}
                     disabled={!user || acceptingKey === token}
-                    className="sm:flex-1"
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                    {acceptingKey === token ? 'Joining...' : 'Join from Email Invite'}
+                    {acceptingKey === token ? 'Joining…' : 'Join classroom'}
                   </Button>
+                }
+                secondaryAction={
                   <Button variant="outline" className="sm:flex-1" onClick={redirectToProfile}>
                     <ShieldCheck className="mr-2 h-4 w-4" />
-                    Complete Profile
+                    Complete profile
                   </Button>
-                </div>
-              </>
+                }
+              />
             ) : (
-              <div className="rounded-3xl border border-dashed border-border bg-white/[0.03] p-4 text-sm text-muted-foreground">
-                {tokenError || 'Invite preview unavailable.'}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              <Card className="border-destructive/30 bg-destructive/5">
+                <CardHeader>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <CardTitle className="text-lg">Invite link unavailable</CardTitle>
+                    <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive">
+                      <Link2 className="mr-1.5 h-3 w-3" />
+                      Email link
+                    </Badge>
+                  </div>
+                  <CardDescription>{tokenError || 'Checking your invite link…'}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Ask your teacher to send a fresh invite, or join from the class link instead.
+                  </p>
+                </CardContent>
+              </Card>
+            )
+          )}
 
-      {user && visibleInvitations.length > 0 && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {visibleInvitations.map((invite) => (
-            <Card key={invite.id} className="rounded-[28px] border-border bg-black/10">
-              <CardHeader>
-                <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle>{invite.classrooms?.name || 'Classroom invite'}</CardTitle>
-                  <Badge variant="outline" className="border-primary/20 bg-primary/10 text-primary">
-                    Pending
-                  </Badge>
-                </div>
-                <CardDescription>{invite.classrooms?.description || 'No description provided.'}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                  <span>Expires {formatIst(invite.expires_at)} IST</span>
-                  <span>Received {formatIst(invite.created_at)}</span>
-                </div>
-
-                <div className="rounded-3xl border border-border bg-white/[0.04] p-4 text-sm text-muted-foreground">
-                  Use your invited account. If your profile is incomplete, Learnify will send you to the profile form before finishing the join.
-                </div>
-
-                <Button onClick={() => acceptInvite(invite.id)} disabled={acceptingKey === invite.id}>
+          {user && visibleInvitations.map((invite) => (
+            <InviteCard
+              key={invite.id}
+              name={invite.classrooms?.name || 'Classroom invite'}
+              description={invite.classrooms?.description || 'No description provided.'}
+              badge="Pending"
+              badgeClassName="border-primary/30 bg-primary/10 text-primary"
+              meta={[
+                { icon: CalendarClock, label: `Expires ${formatIst(invite.expires_at)} IST` },
+                { icon: Mail, label: `Received ${formatIst(invite.created_at)}` }
+              ]}
+              note="Use your invited account. If your profile is incomplete, you'll finish it before the join completes."
+              primaryAction={
+                <Button
+                  className="sm:flex-1"
+                  onClick={() => acceptInvite(invite.id)}
+                  disabled={acceptingKey === invite.id}
+                >
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  {acceptingKey === invite.id ? 'Joining...' : 'Join Classroom'}
+                  {acceptingKey === invite.id ? 'Joining…' : 'Join classroom'}
                 </Button>
-              </CardContent>
-            </Card>
+              }
+            />
           ))}
         </div>
       )}
 
       {user && !tokenInvitation && visibleInvitations.length === 0 && (
-        <Card className="rounded-[28px] border-border bg-black/10">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <Mail className="h-8 w-8 text-primary" />
-            </div>
-            <CardTitle>No pending invitations</CardTitle>
-            <CardDescription>You will see new classroom invitations here when a teacher sends them.</CardDescription>
-          </CardHeader>
-        </Card>
+        <EmptyState
+          icon={Mail}
+          title="No pending invitations"
+          description="New classroom invitations show up here as soon as a teacher sends one. You can also join directly from a class link."
+          action={
+            <Button variant="outline" onClick={() => router.push('/classrooms')}>
+              Back to my classrooms
+            </Button>
+          }
+        />
       )}
-    </div>
+    </>
   )
 }
 
 export default function ClassroomInvitationsPage() {
   return (
-    <Suspense fallback={<div className="text-muted-foreground">Loading invitations...</div>}>
+    <Suspense fallback={<PageLoading showStats={false} rows={2} />}>
       <ClassroomInvitationsContent />
     </Suspense>
   )
