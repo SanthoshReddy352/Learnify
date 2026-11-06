@@ -1,0 +1,33 @@
+
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # Every day at 04:17 UTC (9:47 AM IST)
+    - cron: "17 4 * * *"
+
+  workflow_dispatch:
+
+jobs:
+  keep-supabase-active:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Supabase Database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+        run: |
+          echo "Checking Supabase database activity..."
+
+          curl --fail --silent --show-error \
+            --max-time 30 \
+            --retry 2 \
+            --retry-delay 5 \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/?select=count&limit=1"
+
+          echo ""
+          echo "Supabase database responded successfully."
